@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>强化学习系统学习笔记 (Day 1-6)</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --text-muted: #8b949e;
+            --accent: #58a6ff;
+            --accent2: #f78166;
+            --green: #3fb950;
+            --purple: #bc8cff;
+            --yellow: #d29922;
+            --code-bg: #1c2128;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+            background: var(--bg); color: var(--text);
+            line-height: 1.8; padding: 0;
+        }
+        /* Navigation Sidebar */
+        .sidebar {
+            position: fixed; left: 0; top: 0; bottom: 0;
+            width: 280px; background: var(--card);
+            border-right: 1px solid var(--border);
+            padding: 24px 16px; overflow-y: auto; z-index: 100;
+        }
+        .sidebar h2 {
+            font-size: 16px; color: var(--accent);
+            margin-bottom: 16px; padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+        .sidebar a {
+            display: block; padding: 8px 12px; margin: 2px 0;
+            color: var(--text-muted); text-decoration: none;
+            border-radius: 6px; font-size: 14px;
+            transition: all 0.2s;
+        }
+        .sidebar a:hover { background: #1f2937; color: var(--text); }
+        .sidebar a.active { background: #1f2937; color: var(--accent); }
+        .sidebar .day-group { margin-bottom: 8px; }
+        .sidebar .day-label {
+            font-size: 11px; text-transform: uppercase;
+            color: var(--text-muted); padding: 4px 12px;
+            letter-spacing: 1px;
+        }
+        /* Main Content */
+        .main {
+            margin-left: 280px; padding: 40px 60px;
+            max-width: 900px;
+        }
+        /* Header */
+        .hero {
+            text-align: center; padding: 60px 0 40px;
+            border-bottom: 1px solid var(--border); margin-bottom: 40px;
+        }
+        .hero h1 {
+            font-size: 42px; font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--purple));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 12px;
+        }
+        .hero p { color: var(--text-muted); font-size: 18px; }
+        /* Day Section */
+        .day-section {
+            margin-bottom: 60px; padding: 32px;
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+        .day-section h2 {
+            font-size: 28px; margin-bottom: 20px;
+            padding-bottom: 12px; border-bottom: 2px solid var(--border);
+        }
+        .day-section h2 .day-num {
+            color: var(--accent); font-weight: 700;
+        }
+        .day-section h3 {
+            font-size: 20px; margin: 28px 0 12px;
+            color: var(--accent);
+        }
+        .day-section h4 {
+            font-size: 16px; margin: 20px 0 8px;
+            color: var(--purple);
+        }
+        .day-section p { margin: 10px 0; }
+        .day-section ul, .day-section ol { margin: 10px 0 10px 24px; }
+        .day-section li { margin: 4px 0; }
+        /* Formula Box */
+        .formula {
+            background: var(--code-bg); border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            padding: 16px 20px; margin: 16px 0;
+            border-radius: 0 8px 8px 0; overflow-x: auto;
+            font-size: 15px;
+        }
+        .formula .label {
+            font-size: 12px; color: var(--accent2);
+            margin-bottom: 6px; font-weight: 600;
+        }
+        /* Key Concept Box */
+        .key-box {
+            background: linear-gradient(135deg, #1a2332, #1c2a3a);
+            border: 1px solid var(--accent); border-radius: 8px;
+            padding: 16px 20px; margin: 16px 0;
+        }
+        .key-box .title {
+            color: var(--accent); font-weight: 600;
+            font-size: 14px; margin-bottom: 8px;
+        }
+        /* Comparison Table */
+        table {
+            width: 100%; border-collapse: collapse;
+            margin: 16px 0; font-size: 14px;
+        }
+        th {
+            background: var(--code-bg); color: var(--accent);
+            padding: 10px 14px; text-align: left;
+            border-bottom: 2px solid var(--border);
+            font-size: 13px;
+        }
+        td {
+            padding: 10px 14px; border-bottom: 1px solid var(--border);
+        }
+        tr:hover td { background: #1a2233; }
+        /* Code Block */
+        pre {
+            background: var(--code-bg); border: 1px solid var(--border);
+            border-radius: 8px; padding: 16px;
+            overflow-x: auto; margin: 16px 0;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 13px; line-height: 1.6;
+        }
+        code {
+            font-family: 'Fira Code', 'Consolas', monospace;
+            background: var(--code-bg); padding: 2px 6px;
+            border-radius: 4px; font-size: 0.9em;
+        }
+        /* Summary Card */
+        .summary-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 12px; margin: 16px 0;
+        }
+        .summary-card {
+            background: var(--code-bg); border: 1px solid var(--border);
+            border-radius: 8px; padding: 16px;
+        }
+        .summary-card .num {
+            display: inline-block; width: 24px; height: 24px;
+            background: var(--accent); color: var(--bg);
+            border-radius: 50%; text-align: center;
+            line-height: 24px; font-size: 12px; font-weight: 700;
+            margin-right: 8px;
+        }
+        .summary-card .name { font-weight: 600; font-size: 14px; }
+        .summary-card .desc { color: var(--text-muted); font-size: 13px; margin-top: 6px; }
+        /* Blockquote */
+        blockquote {
+            border-left: 3px solid var(--purple);
+            padding: 8px 16px; margin: 12px 0;
+            color: var(--text-muted); font-style: italic;
+            background: rgba(188, 140, 255, 0.05);
+        }
+        /* Flowchart (simple CSS) */
+        .flow {
+            display: flex; align-items: center; justify-content: center;
+            flex-wrap: wrap; gap: 8px; margin: 16px 0; padding: 16px;
+            background: var(--code-bg); border-radius: 8px;
+        }
+        .flow-node {
+            background: var(--card); border: 2px solid var(--accent);
+            border-radius: 8px; padding: 8px 16px;
+            font-size: 14px; font-weight: 600; white-space: nowrap;
+        }
+        .flow-arrow { color: var(--accent); font-size: 20px; }
+        /* Tag */
+        .tag {
+            display: inline-block; padding: 2px 8px;
+            border-radius: 12px; font-size: 12px; font-weight: 600;
+        }
+        .tag-on { background: #1a3a2a; color: var(--green); border: 1px solid var(--green); }
+        .tag-off { background: #3a2a1a; color: var(--accent2); border: 1px solid var(--accent2); }
+        .tag-dp { background: #2a1a3a; color: var(--purple); border: 1px solid var(--purple); }
+        .tag-mc { background: #1a2a3a; color: var(--accent); border: 1px solid var(--accent); }
+        .tag-td { background: #3a3a1a; color: var(--yellow); border: 1px solid var(--yellow); }
+        /* Responsive */
+        @media (max-width: 900px) {
+            .sidebar { display: none; }
+            .main { margin-left: 0; padding: 20px; }
+        }
+        /* Progress Bar */
+        .progress-bar {
+            height: 6px; background: var(--border); border-radius: 3px;
+            margin: 8px 0 20px; overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%; border-radius: 3px;
+            background: linear-gradient(90deg, var(--accent), var(--green));
+        }
+    </style>
+    <!-- MathJax -->
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$','$']], displayMath: [['$$','$$']] },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+
+<!-- Sidebar Navigation -->
+<nav class="sidebar">
+    <h2>📚 RL 学习笔记</h2>
+    <div class="day-group">
+        <div class="day-label">第一阶段：基础理论</div>
+        <a href="#day1" onclick="scrollToDay('day1')">Day 1 引言与 MDP</a>
+        <a href="#day2" onclick="scrollToDay('day2')">Day 2 贝尔曼方程</a>
+        <a href="#day3" onclick="scrollToDay('day3')">Day 3 动态规划</a>
+        <a href="#day4" onclick="scrollToDay('day4')">Day 4 蒙特卡洛方法</a>
+        <a href="#day5" onclick="scrollToDay('day5')">Day 5 时序差分学习</a>
+        <a href="#day6" onclick="scrollToDay('day6')">Day 6 SARSA 与 Q-Learning</a>
+    </div>
+    <div class="day-group" style="margin-top:20px;">
+        <div class="day-label">学习进度</div>
+        <div style="padding:8px 12px; font-size:13px; color:var(--text-muted);">
+            已完成 6 / 21 天
+            <div class="progress-bar"><div class="progress-fill" style="width:29%"></div></div>
+        </div>
+    </div>
+    <div class="day-group" style="margin-top:12px;">
+        <div class="day-label">GitHub 仓库</div>
+        <a href="https://github.com/Xinyu-lumos/RL-study" target="_blank" style="color:var(--accent);">
+            🔗 Xinyu-lumos/RL-study
+        </a>
+    </div>
+</nav>
+
+<!-- Main Content -->
+<div class="main">
+
+<div class="hero">
+    <h1>强化学习系统学习笔记</h1>
+    <p>Reinforcement Learning Study Notes — Day 1 to Day 6</p>
+    <p style="margin-top:8px; font-size:14px;">
+        <span class="tag tag-dp">MDP</span>
+        <span class="tag tag-dp">Bellman</span>
+        <span class="tag tag-dp">DP</span>
+        <span class="tag tag-mc">MC</span>
+        <span class="tag tag-td">TD</span>
+        <span class="tag tag-on">SARSA</span>
+        <span class="tag tag-off">Q-Learning</span>
+    </p>
+</div>
+
+<!-- ==================== DAY 1 ==================== -->
+<section class="day-section" id="day1">
+    <h2><span class="day-num">Day 1</span> 引言与马尔可夫决策过程</h2>
+
+    <h3>什么是强化学习</h3>
+    <p>强化学习研究<strong>智能体（Agent）</strong>如何在与<strong>环境（Environment）</strong>的交互中，通过<strong>试错</strong>学习最优行为策略，以最大化<strong>累积奖励</strong>。</p>
+
+    <table>
+        <tr><th>范式</th><th>数据</th><th>反馈</th><th>目标</th></tr>
+        <tr><td>监督学习</td><td>带标签数据集</td><td>正确答案</td><td>拟合映射</td></tr>
+        <tr><td>无监督学习</td><td>无标签数据</td><td>无显式反馈</td><td>发现结构</td></tr>
+        <tr><td><strong>强化学习</strong></td><td>交互序列</td><td>奖励信号</td><td>最大化累积奖励</td></tr>
+    </table>
+
+    <h3>Agent-Environment 交互循环</h3>
+    <div class="flow">
+        <span class="flow-node">Agent</span>
+        <span class="flow-arrow">→ 动作 A<sub>t</sub> →</span>
+        <span class="flow-node">Environment</span>
+        <span class="flow-arrow">→ S<sub>t+1</sub>, R<sub>t+1</sub> →</span>
+        <span class="flow-node">Agent</span>
+    </div>
+
+    <h3>MDP 五元组</h3>
+    <div class="formula">
+        <div class="label">MDP 定义</div>
+        $(\mathcal{S}, \mathcal{A}, P, R, \gamma)$ — 状态空间、动作空间、转移概率、奖励函数、折扣因子
+    </div>
+
+    <h3>马尔可夫性质</h3>
+    <div class="formula">
+        <div class="label">核心假设</div>
+        $P(S_{t+1} \mid S_t, A_t, \ldots, S_0) = P(S_{t+1} \mid S_t, A_t)$
+    </div>
+    <blockquote>未来只取决于现在，与过去无关。当前状态包含了所有用于决策的历史信息。</blockquote>
+
+    <h3>回报与价值函数</h3>
+    <div class="formula">
+        <div class="label">回报 G<sub>t</sub></div>
+        $G_t = R_{t+1} + \gamma R_{t+2} + \gamma^2 R_{t+3} + \cdots = \sum_{k=0}^{\infty} \gamma^k R_{t+k+1}$
+    </div>
+    <div class="formula">
+        <div class="label">状态价值函数 V<sup>π</sup></div>
+        $V^\pi(s) = \mathbb{E}_\pi[G_t \mid S_t = s]$
+    </div>
+    <div class="formula">
+        <div class="label">动作价值函数 Q<sup>π</sup></div>
+        $Q^\pi(s, a) = \mathbb{E}_\pi[G_t \mid S_t = s, A_t = a]$
+    </div>
+
+    <h3>Day 1 核心总结</h3>
+    <div class="summary-grid">
+        <div class="summary-card"><span class="num">1</span><span class="name">马尔可夫性质</span><div class="desc">$P(S_{t+1}|S_t,A_t)$ 未来只跟现在有关</div></div>
+        <div class="summary-card"><span class="num">2</span><span class="name">MDP</span><div class="desc">$(\mathcal{S},\mathcal{A},P,R,\gamma)$</div></div>
+        <div class="summary-card"><span class="num">3</span><span class="name">回报</span><div class="desc">$G_t = \sum \gamma^k R_{t+k+1}$</div></div>
+        <div class="summary-card"><span class="num">4</span><span class="name">V 和 Q</span><div class="desc">$V^\pi = \mathbb{E}[G|s]$, $Q^\pi = \mathbb{E}[G|s,a]$</div></div>
+    </div>
+</section>
+
+<!-- ==================== DAY 2 ==================== -->
+<section class="day-section" id="day2">
+    <h2><span class="day-num">Day 2</span> 贝尔曼方程</h2>
+
+    <h3>核心递推：从无限和到一步</h3>
+    <div class="formula">
+        <div class="label">回报递推（贝尔曼方程之源）</div>
+        $G_t = R_{t+1} + \gamma G_{t+1}$
+    </div>
+    <div class="key-box">
+        <div class="title">💡 核心洞察</div>
+        贝尔曼方程把"无限求和"变成了"一步递推"：今天的总资产 = 今天的收入 + 折现后的明天的总资产。
+    </div>
+
+    <h3>贝尔曼期望方程</h3>
+    <div class="formula">
+        <div class="label">V<sup>π</sup> 的贝尔曼期望方程</div>
+        $V^\pi(s) = \sum_{a} \pi(a \mid s) \sum_{s'} P(s' \mid s, a) \Big[ R(s, a, s') + \gamma V^\pi(s') \Big]$
+    </div>
+    <div class="formula">
+        <div class="label">Q<sup>π</sup> 的贝尔曼期望方程</div>
+        $Q^\pi(s, a) = \sum_{s'} P(s' \mid s, a) \Big[ R(s, a, s') + \gamma V^\pi(s') \Big]$
+    </div>
+
+    <h3>贝尔曼最优方程</h3>
+    <div class="formula">
+        <div class="label">V<sup>*</sup> 的贝尔曼最优方程</div>
+        $V^*(s) = \max_{a} \sum_{s'} P(s' \mid s, a) \Big[ R(s, a, s') + \gamma V^*(s') \Big]$
+    </div>
+    <div class="formula">
+        <div class="label">Q<sup>*</sup> 的贝尔曼最优方程</div>
+        $Q^*(s, a) = \sum_{s'} P(s' \mid s, a) \Big[ R(s, a, s') + \gamma \max_{a'} Q^*(s', a') \Big]$
+    </div>
+
+    <h3>期望方程 vs 最优方程</h3>
+    <table>
+        <tr><th></th><th>贝尔曼期望方程</th><th>贝尔曼最优方程</th></tr>
+        <tr><td>前提</td><td>给定策略 π</td><td>最优策略 π*</td></tr>
+        <tr><td>运算</td><td>$\sum_a \pi(a|s)$ 加权平均</td><td>$\max_a$ 取最大值</td></tr>
+        <tr><td>问题</td><td>评估策略</td><td>寻找最优策略</td></tr>
+        <tr><td>对应算法</td><td>策略评估</td><td>价值迭代 / Q-Learning</td></tr>
+    </table>
+
+    <h3>V 与 Q 关系图</h3>
+    <div class="flow">
+        <span class="flow-node">V<sup>π</sup></span>
+        <span class="flow-arrow">→ 加权平均 →</span>
+        <span class="flow-node">Q<sup>π</sup></span>
+        <span class="flow-arrow">→ 转移期望 →</span>
+        <span class="flow-node">V<sup>π</sup>(s')</span>
+    </div>
+</section>
+
+<!-- ==================== DAY 3 ==================== -->
+<section class="day-section" id="day3">
+    <h2><span class="day-num">Day 3</span> 动态规划</h2>
+
+    <h3>策略评估</h3>
+    <div class="formula">
+        <div class="label">迭代更新</div>
+        $V_{k+1}(s) = \sum_a \pi(a \mid s) \sum_{s'} P(s'|s,a) [R + \gamma V_k(s')]$
+    </div>
+    <div class="flow">
+        <span class="flow-node">V=0</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-node">期望方程更新</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-node">Δ<θ ?</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-node">输出 V<sup>π</sup></span>
+    </div>
+
+    <h3>策略迭代</h3>
+    <div class="formula">
+        <div class="label">贪心改进</div>
+        $\pi'(s) = \arg\max_a \sum_{s'} P(s'|s,a) [R + \gamma V^\pi(s')]$
+    </div>
+    <div class="flow">
+        <span class="flow-node">π</span>
+        <span class="flow-arrow">→ 评估 →</span>
+        <span class="flow-node">V<sup>π</sup></span>
+        <span class="flow-arrow">→ 贪心 →</span>
+        <span class="flow-node">π'</span>
+        <span class="flow-arrow">→ 评估 →</span>
+        <span class="flow-node">...</span>
+    </div>
+
+    <h3>价值迭代</h3>
+    <div class="formula">
+        <div class="label">V 的贝尔曼最优更新</div>
+        $V_{k+1}(s) = \max_a \sum_{s'} P(s'|s,a) [R + \gamma V_k(s')]$
+    </div>
+
+    <h3>三种 DP 算法对比</h3>
+    <table>
+        <tr><th></th><th>策略评估</th><th>策略迭代</th><th>价值迭代</th></tr>
+        <tr><td>目的</td><td>评估 π</td><td>找 π*</td><td>找 π*</td></tr>
+        <tr><td>公式</td><td>$\sum\pi\sum P[R+\gamma V]$</td><td>交替评估+改进</td><td>$\max_a\sum P[R+\gamma V]$</td></tr>
+        <tr><td>评估深度</td><td>到收敛</td><td>到收敛</td><td>一步</td></tr>
+    </table>
+
+    <h3>广义策略迭代（GPI）</h3>
+    <div class="key-box">
+        <div class="title">🔑 统一框架</div>
+        几乎所有 RL 算法都是 GPI 的实例：评估（E）和改进（I）两个过程交替推进。E 和 I 不需要做到极致——只要两者不断推进，系统就会向最优收敛。
+    </div>
+</section>
+
+<!-- ==================== DAY 4 ==================== -->
+<section class="day-section" id="day4">
+    <h2><span class="day-num">Day 4</span> 蒙特卡洛方法</h2>
+
+    <h3>核心思想：用采样替代模型</h3>
+    <div class="formula">
+        <div class="label">MC 估计</div>
+        $V^\pi(s) \approx \frac{1}{N(s)} \sum_{i=1}^{N(s)} G_t^{(i)}$
+    </div>
+    <blockquote>想知道骰子抛出 6 的概率？不用推导物理公式，掷 10000 次然后数。</blockquote>
+
+    <h3>增量更新</h3>
+    <div class="formula">
+        <div class="label">增量平均（为 TD 铺垫）</div>
+        $V(S_t) \leftarrow V(S_t) + \alpha \big(G_t - V(S_t)\big)$
+    </div>
+
+    <h3>ε-贪心策略</h3>
+    <div class="formula">
+        <div class="label">探索与利用的平衡</div>
+        $\pi(a|s) = \begin{cases} 1 - \varepsilon + \frac{\varepsilon}{|\mathcal{A}|} & a = \arg\max Q \\ \frac{\varepsilon}{|\mathcal{A}|} & \text{其他} \end{cases}$
+    </div>
+
+    <h3>On-Policy vs Off-Policy</h3>
+    <table>
+        <tr><th></th><th>On-Policy</th><th>Off-Policy</th></tr>
+        <tr><td>采样策略</td><td>就是目标策略</td><td>与目标策略不同</td></tr>
+        <tr><td>最终策略</td><td>ε-最优</td><td>纯贪心最优</td></tr>
+        <tr><td>方差</td><td>低</td><td>高（重要性采样）</td></tr>
+    </table>
+
+    <h3>MC vs DP</h3>
+    <div class="summary-grid">
+        <div class="summary-card"><span class="num">+</span><span class="name">MC 优势</span><div class="desc">不需要模型、无偏、状态独立</div></div>
+        <div class="summary-card"><span class="num">−</span><span class="name">MC 劣势</span><div class="desc">必须等回合结束、高方差、连续任务不可用</div></div>
+    </div>
+</section>
+
+<!-- ==================== DAY 5 ==================== -->
+<section class="day-section" id="day5">
+    <h2><span class="day-num">Day 5</span> 时序差分学习</h2>
+
+    <h3>TD(0)：最优雅的公式</h3>
+    <div class="formula">
+        <div class="label">TD(0) 更新规则</div>
+        $V(S_t) \leftarrow V(S_t) + \alpha \big[ R_{t+1} + \gamma V(S_{t+1}) - V(S_t) \big]$
+    </div>
+    <div class="formula">
+        <div class="label">TD 误差</div>
+        $\delta_t = R_{t+1} + \gamma V(S_{t+1}) - V(S_t)$
+    </div>
+
+    <div class="key-box">
+        <div class="title">💡 TD = MC + DP</div>
+        <p>像 MC 一样<strong>不需要模型</strong>（从经验学）<br>
+        像 DP 一样<strong>可以自举</strong>（用 V(s') 代替 G）<br>
+        <strong>每步更新，不需要等回合结束</strong></p>
+    </div>
+
+    <h3>三种更新目标对比</h3>
+    <table>
+        <tr><th>方法</th><th>更新目标</th><th>需要模型？</th><th>需要等结局？</th><th>自举？</th></tr>
+        <tr><td>DP</td><td>$R + \gamma V(s')$</td><td>✅</td><td>❌</td><td>✅</td></tr>
+        <tr><td>MC</td><td>$G_t$</td><td>❌</td><td>✅</td><td>❌</td></tr>
+        <tr><td><strong>TD</strong></td><td>$R + \gamma V(s')$</td><td>❌</td><td>❌</td><td>✅</td></tr>
+    </table>
+
+    <h3>偏差-方差权衡</h3>
+    <table>
+        <tr><th></th><th>MC</th><th>TD(0)</th></tr>
+        <tr><td>偏差</td><td><strong>无偏</strong></td><td>有偏（V(s') 不准）</td></tr>
+        <tr><td>方差</td><td>高（G 累积全程随机性）</td><td><strong>低</strong>（只依赖一步）</td></tr>
+        <tr><td>收敛速度</td><td>慢</td><td><strong>快</strong></td></tr>
+    </table>
+
+    <h3>MC 误差 = TD 误差的折扣和</h3>
+    <div class="formula">
+        <div class="label">关键恒等式</div>
+        $G_t - V(S_t) = \delta_t + \gamma\delta_{t+1} + \gamma^2\delta_{t+2} + \cdots + \gamma^{T-t-1}\delta_{T-1}$
+    </div>
+</section>
+
+<!-- ==================== DAY 6 ==================== -->
+<section class="day-section" id="day6">
+    <h2><span class="day-num">Day 6</span> SARSA 与 Q-Learning</h2>
+
+    <h3>SARSA：On-Policy TD 控制</h3>
+    <div class="formula">
+        <div class="label">SARSA 更新 <span class="tag tag-on">On-Policy</span></div>
+        $Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha \big[ R_{t+1} + \gamma Q(S_{t+1}, A_{t+1}) - Q(S_t, A_t) \big]$
+    </div>
+    <p>名字来自五元组：<strong>S</strong>₀, <strong>A</strong>₀, <strong>R</strong>₁, <strong>S</strong>₁, <strong>A</strong>₁。TD 目标中使用的 $A_{t+1}$ 是<strong>同一策略 ε-贪心</strong>选的。</p>
+
+    <h3>Q-Learning：Off-Policy TD 控制</h3>
+    <div class="formula">
+        <div class="label">Q-Learning 更新 <span class="tag tag-off">Off-Policy</span></div>
+        $Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha \big[ R_{t+1} + \gamma \max_{a'} Q(S_{t+1}, a') - Q(S_t, A_t) \big]$
+    </div>
+    <p>TD 目标使用 $\max$ 而非策略选择的动作——直接评估<strong>最优价值函数</strong>。</p>
+
+    <h3>Expected SARSA</h3>
+    <div class="formula">
+        <div class="label">Expected SARSA</div>
+        $Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha \big[ R_{t+1} + \gamma \sum_{a'} \pi(a'|S_{t+1}) Q(S_{t+1}, a') - Q(S_t, A_t) \big]$
+    </div>
+
+    <h3>三种算法核心对比</h3>
+    <table>
+        <tr><th></th><th>SARSA</th><th>Expected SARSA</th><th>Q-Learning</th></tr>
+        <tr><td>类型</td><td>On-Policy</td><td>可 On 可 Off</td><td>Off-Policy</td></tr>
+        <tr><td>TD 目标</td><td>$Q(S', A')$</td><td>$\sum \pi Q$</td><td>$\max Q$</td></tr>
+        <tr><td>方差</td><td>最高</td><td>中</td><td>最低</td></tr>
+        <tr><td>风险偏好</td><td><strong>保守</strong></td><td>中间</td><td><strong>激进</strong></td></tr>
+    </table>
+
+    <h3>Cliff Walking 实验</h3>
+    <div class="key-box">
+        <div class="title"> Cliff Walking 关键发现</div>
+        <p><strong>SARSA</strong> 学到上方绕行的安全路径（考虑 ε-贪心会掉崖的风险）<br>
+        <strong>Q-Learning</strong> 学到悬崖边缘的最短路径（假设执行最优策略）<br>
+        但训练时 Q-Learning 总奖励更差（ε-贪心导致频繁掉崖）<br>
+        <strong>Expected SARSA</strong> 综合表现最好</p>
+    </div>
+
+    <h3>Day 6 核心总结</h3>
+    <div class="summary-grid">
+        <div class="summary-card"><span class="num">1</span><span class="name">SARSA</span><div class="desc">On-Policy，用策略选的 A' 更新</div></div>
+        <div class="summary-card"><span class="num">2</span><span class="name">Q-Learning</span><div class="desc">Off-Policy，用 max 更新，直接学 Q*</div></div>
+        <div class="summary-card"><span class="num">3</span><span class="name">唯一区别</span><div class="desc">Q(S',A') vs max Q(S',a')</div></div>
+        <div class="summary-card"><span class="num">4</span><span class="name">Q 值过估计</span><div class="desc">max 操作引入正偏差</div></div>
+    </div>
+</section>
+
+<!-- ==================== ALGORITHM MAP ==================== -->
+<section class="day-section" id="overview">
+    <h2>🗺️ 算法关系全景图</h2>
+    <table>
+        <tr><th>维度</th><th>有模型</th><th colspan="2">无模型</th></tr>
+        <tr><td>方法</td><td>DP</td><td>MC</td><td>TD</td></tr>
+        <tr><td>自举</td><td>✅</td><td>❌</td><td>✅</td></tr>
+        <tr><td>需要模型</td><td>✅</td><td>❌</td><td>❌</td></tr>
+        <tr><td>等回合结束</td><td>❌</td><td>✅</td><td>❌</td></tr>
+        <tr><td>偏差</td><td>模型偏差</td><td>无偏</td><td>有偏</td></tr>
+        <tr><td>方差</td><td>低</td><td>高</td><td>低</td></tr>
+        <tr><td>On-Policy 算法</td><td>策略迭代</td><td>MC 控制</td><td>SARSA</td></tr>
+        <tr><td>Off-Policy 算法</td><td>价值迭代</td><td>MC + IS</td><td>Q-Learning</td></tr>
+    </table>
+
+    <h3>公式演化路径</h3>
+    <div class="flow">
+        <span class="flow-node">贝尔曼方程</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-node">策略评估</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-node">TD(0)</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-node">SARSA/Q-Learning</span>
+    </div>
+    <div style="margin-top:8px; font-size:13px; color:var(--text-muted); text-align:center;">
+        评估 V → 评估 Q → 用 TD 替换完整回报 → 从 V 推广到 Q 得到控制算法
+    </div>
+</section>
+
+<footer style="text-align:center; padding:40px 0; color:var(--text-muted); font-size:13px; border-top:1px solid var(--border); margin-top:40px;">
+    <p>强化学习系统学习笔记 · Day 1-6 · <a href="https://github.com/Xinyu-lumos/RL-study" style="color:var(--accent);">GitHub 仓库</a></p>
+    <p style="margin-top:4px;">参考资料：Sutton & Barto《Reinforcement Learning: An Introduction》</p>
+</footer>
+
+</div>
+
+<script>
+function scrollToDay(id) {
+    document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+}
+// Highlight active sidebar link on scroll
+const sections = document.querySelectorAll('.day-section');
+const navLinks = document.querySelectorAll('.sidebar a[href^="#"]');
+window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(s => {
+        if (window.scrollY >= s.offsetTop - 100) current = s.id;
+    });
+    navLinks.forEach(a => {
+        a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    });
+});
+</script>
+
+</body>
+</html>
