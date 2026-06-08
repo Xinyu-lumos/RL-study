@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 5：时序差分学习 - 强化学习笔记</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--orange:#f78166;--green:#3fb950;--purple:#bc8cff;--yellow:#d29922;--code-bg:#1c2128}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);line-height:1.8;max-width:880px;margin:0 auto;padding:40px 24px}
+h1{font-size:36px;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--muted);font-size:16px;margin-bottom:32px}
+h2{font-size:24px;margin:36px 0 16px;padding-bottom:8px;border-bottom:2px solid var(--border)}
+h3{font-size:18px;margin:24px 0 10px;color:var(--accent)}
+p{margin:10px 0} ul,ol{margin:8px 0 8px 24px} li{margin:4px 0}
+a{color:var(--accent)}
+.formula{background:var(--code-bg);border:1px solid var(--border);border-left:3px solid var(--accent);padding:14px 18px;margin:14px 0;border-radius:0 8px 8px 0;overflow-x:auto}
+.formula .lbl{font-size:12px;color:var(--orange);margin-bottom:4px;font-weight:600}
+.key-box{background:linear-gradient(135deg,#1a2332,#1c2a3a);border:1px solid var(--accent);border-radius:8px;padding:14px 18px;margin:14px 0}
+.key-box .kbt{color:var(--accent);font-weight:600;font-size:14px;margin-bottom:8px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+th{background:var(--code-bg);color:var(--accent);padding:10px 14px;text-align:left;border-bottom:2px solid var(--border);font-size:13px}
+td{padding:10px 14px;border-bottom:1px solid var(--border)}
+tr:hover td{background:#1a2233}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px;overflow-x:auto;margin:14px 0;font-family:'Fira Code','Consolas',monospace;font-size:13px;line-height:1.6}
+code{font-family:'Fira Code','Consolas',monospace;background:var(--code-bg);padding:2px 6px;border-radius:4px;font-size:.9em}
+blockquote{border-left:3px solid var(--purple);padding:8px 16px;margin:12px 0;color:var(--muted);font-style:italic;background:rgba(188,140,255,.05)}
+.flow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin:14px 0;padding:14px;background:var(--code-bg);border-radius:8px}
+.fn{background:var(--card);border:2px solid var(--accent);border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;white-space:nowrap}
+.fa{color:var(--accent);font-size:20px}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:14px 0}
+.sc{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px}
+.sc .n{display:inline-block;width:22px;height:22px;background:var(--accent);color:var(--bg);border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;margin-right:8px}
+.sc .name{font-weight:600;font-size:14px}
+.sc .desc{color:var(--muted);font-size:13px;margin-top:4px}
+footer{text-align:center;margin-top:48px;padding-top:24px;border-top:1px solid var(--border);color:var(--muted);font-size:13px}
+@media(max-width:640px){body{padding:20px 14px}h1{font-size:28px}}
+</style>
+<script>window.MathJax={tex:{inlineMath:[['$','$']],displayMath:[['$$','$$']]},svg:{fontCache:'global'}}</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+<h1>Day 5：时序差分学习</h1>
+<p class="subtitle">Temporal Difference — MC 和 DP 的完美融合</p>
+
+<h2>1. TD(0)：最优雅的公式</h2>
+<div class="formula"><div class="lbl">TD(0) 更新规则</div>$V(S_t) \leftarrow V(S_t) + \alpha \big[ R_{t+1} + \gamma V(S_{t+1}) - V(S_t) \big]$</div>
+<div class="formula"><div class="lbl">TD 误差</div>$\delta_t = R_{t+1} + \gamma V(S_{t+1}) - V(S_t)$</div>
+
+<div class="key-box"><div class="kbt">💡 TD = MC + DP</div>
+<p>像 MC 一样<strong>不需要模型</strong>（从经验学）<br>
+像 DP 一样<strong>可以自举</strong>（用 V(s') 代替 G）<br>
+<strong>每步更新，不需要等回合结束</strong></p></div>
+
+<h2>2. 三种更新目标对比</h2>
+<table>
+<tr><th>方法</th><th>更新目标</th><th>需要模型？</th><th>等结局？</th><th>自举？</th></tr>
+<tr><td>DP</td><td>$R + \gamma V(s')$</td><td>✅</td><td>❌</td><td>✅</td></tr>
+<tr><td>MC</td><td>$G_t$（完整回报）</td><td>❌</td><td>✅</td><td>❌</td></tr>
+<tr><td><strong>TD</strong></td><td>$R + \gamma V(s')$</td><td>❌</td><td>❌</td><td>✅</td></tr>
+</table>
+
+<h2>3. 偏差-方差权衡</h2>
+<table>
+<tr><th></th><th>MC</th><th>TD(0)</th></tr>
+<tr><td>偏差</td><td><strong>无偏</strong></td><td>有偏（V(s') 不准）</td></tr>
+<tr><td>方差</td><td>高（G 累积全程随机性）</td><td><strong>低</strong>（只依赖一步）</td></tr>
+<tr><td>收敛速度</td><td>慢</td><td><strong>快</strong></td></tr>
+</table>
+<blockquote>MC：看完电影再评价——准确但每次感受不同。TD：看预告片猜评分——可能猜错但很稳定。</blockquote>
+
+<h2>4. MC 误差 = TD 误差的折扣和</h2>
+<div class="formula"><div class="lbl">关键恒等式</div>$G_t - V(S_t) = \delta_t + \gamma\delta_{t+1} + \gamma^2\delta_{t+2} + \cdots + \gamma^{T-t-1}\delta_{T-1}$</div>
+<p>MC 误差可以分解为所有后续 TD 误差的折扣和。批量更新时，TD 和 MC 可能收敛到不同结果——TD 利用了马尔可夫结构。</p>
+
+<h2>5. 收敛性</h2>
+<div class="formula"><div class="lbl">收敛条件</div>$\sum_{t=1}^{\infty} \alpha_t = \infty, \quad \sum_{t=1}^{\infty} \alpha_t^2 < \infty$</div>
+<p>步长无穷大保证能走到目标，步长平方和有限保证最终稳定。</p>
+
+<h2>6. TD 的历史地位</h2>
+<div class="key-box"><div class="kbt">🏆 RL 中最重要的思想之一</div>
+<p>TD 首次实现了：① 不需要模型 ② 不需要等回合结束 ③ 在线、增量、每步更新<br>
+后续 SARSA、Q-Learning、DQN、Actor-Critic 全部建立在 TD 之上。</p></div>
+
+<h2>7. 核心总结</h2>
+<div class="summary">
+<div class="sc"><span class="n">1</span><span class="name">TD(0) 更新</span><div class="desc">$V \leftarrow V + \alpha[R + \gamma V' - V]$</div></div>
+<div class="sc"><span class="n">2</span><span class="name">TD 误差</span><div class="desc">$\delta = R + \gamma V' - V$</div></div>
+<div class="sc"><span class="n">3</span><span class="name">TD = MC + DP</span><div class="desc">无模型 + 自举</div></div>
+<div class="sc"><span class="n">4</span><span class="name">偏差-方差</span><div class="desc">有偏低方差 vs 无偏高方差</div></div>
+</div>
+
+<footer>
+<p>强化学习系统学习笔记 · Day 5 · <a href="https://github.com/Xinyu-lumos/RL-study">GitHub 仓库</a></p>
+<p>参考：Sutton &amp; Barto, Chapter 6</p>
+</footer>
+</body>
+</html>
