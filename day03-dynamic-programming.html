@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 3：动态规划 - 强化学习笔记</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--orange:#f78166;--green:#3fb950;--purple:#bc8cff;--yellow:#d29922;--code-bg:#1c2128}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);line-height:1.8;max-width:880px;margin:0 auto;padding:40px 24px}
+h1{font-size:36px;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--muted);font-size:16px;margin-bottom:32px}
+h2{font-size:24px;margin:36px 0 16px;padding-bottom:8px;border-bottom:2px solid var(--border)}
+h3{font-size:18px;margin:24px 0 10px;color:var(--accent)}
+h4{font-size:15px;margin:18px 0 8px;color:var(--purple)}
+p{margin:10px 0}
+ul,ol{margin:8px 0 8px 24px} li{margin:4px 0}
+a{color:var(--accent)}
+.formula{background:var(--code-bg);border:1px solid var(--border);border-left:3px solid var(--accent);padding:14px 18px;margin:14px 0;border-radius:0 8px 8px 0;overflow-x:auto}
+.formula .lbl{font-size:12px;color:var(--orange);margin-bottom:4px;font-weight:600}
+.key-box{background:linear-gradient(135deg,#1a2332,#1c2a3a);border:1px solid var(--accent);border-radius:8px;padding:14px 18px;margin:14px 0}
+.key-box .kbt{color:var(--accent);font-weight:600;font-size:14px;margin-bottom:8px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+th{background:var(--code-bg);color:var(--accent);padding:10px 14px;text-align:left;border-bottom:2px solid var(--border);font-size:13px}
+td{padding:10px 14px;border-bottom:1px solid var(--border)}
+tr:hover td{background:#1a2233}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px;overflow-x:auto;margin:14px 0;font-family:'Fira Code','Consolas',monospace;font-size:13px;line-height:1.6}
+code{font-family:'Fira Code','Consolas',monospace;background:var(--code-bg);padding:2px 6px;border-radius:4px;font-size:.9em}
+blockquote{border-left:3px solid var(--purple);padding:8px 16px;margin:12px 0;color:var(--muted);font-style:italic;background:rgba(188,140,255,.05)}
+.flow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin:14px 0;padding:14px;background:var(--code-bg);border-radius:8px}
+.fn{background:var(--card);border:2px solid var(--accent);border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;white-space:nowrap}
+.fa{color:var(--accent);font-size:20px}
+.step{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;margin:14px 0}
+.step .sn{display:inline-block;width:28px;height:28px;background:var(--accent);color:var(--bg);border-radius:50%;text-align:center;line-height:28px;font-size:13px;font-weight:700;margin-right:10px}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:14px 0}
+.sc{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px}
+.sc .n{display:inline-block;width:22px;height:22px;background:var(--accent);color:var(--bg);border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;margin-right:8px}
+.sc .name{font-weight:600;font-size:14px}
+.sc .desc{color:var(--muted);font-size:13px;margin-top:4px}
+footer{text-align:center;margin-top:48px;padding-top:24px;border-top:1px solid var(--border);color:var(--muted);font-size:13px}
+@media(max-width:640px){body{padding:20px 14px}h1{font-size:28px}}
+</style>
+<script>window.MathJax={tex:{inlineMath:[['$','$']],displayMath:[['$$','$$']]},svg:{fontCache:'global'}}</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+
+<h1>Day 3：动态规划</h1>
+<p class="subtitle">Dynamic Programming — 从贝尔曼方程到可执行算法</p>
+
+<!-- 1 -->
+<h2>1. 核心思想：迭代逼近不动点</h2>
+<p>贝尔曼方程是一个<strong>自我引用</strong>的方程组——$V(s)$ 依赖于 $V(s')$，而 $V(s')$ 又可能依赖于 $V(s)$。</p>
+
+<div class="formula"><div class="lbl">贝尔曼期望算子</div>$\mathcal{T}^\pi(V)(s) = \sum_a \pi(a|s) \sum_{s'} P(s'|s,a) [R + \gamma V(s')]$</div>
+
+<p>我们要找的是 $\mathcal{T}^\pi$ 的<strong>不动点</strong>：$V^\pi = \mathcal{T}^\pi(V^\pi)$</p>
+
+<div class="key-box"><div class="kbt">💡 压缩映射 + Banach 不动点定理</div>
+<p>$\mathcal{T}^\pi$ 是 $\gamma$-压缩映射：$\|\mathcal{T}^\pi(V_1) - \mathcal{T}^\pi(V_2)\|_\infty \leq \gamma \|V_1 - V_2\|_\infty$<br>
+不管初始值怎么猜，反复应用 $\mathcal{T}^\pi$ 一定收敛到唯一不动点 $V^\pi$。</p></div>
+
+<!-- 2 -->
+<h2>2. 策略评估（Policy Evaluation）</h2>
+<h3>问题</h3>
+<p>给定策略 $\pi$，计算 $V^\pi$。</p>
+
+<h3>更新公式</h3>
+<div class="formula"><div class="lbl">迭代策略评估</div>$V_{k+1}(s) = \sum_{a} \pi(a \mid s) \sum_{s'} P(s' \mid s, a) \Big[ R(s, a, s') + \gamma V_k(s') \Big]$</div>
+
+<h3>公式拆解</h3>
+<table>
+<tr><th>符号</th><th>含义</th><th>来源</th></tr>
+<tr><td>$\pi(a|s)$</td><td>策略：在 $s$ 选 $a$ 的概率</td><td>已知</td></tr>
+<tr><td>$P(s'|s,a)$</td><td>转移概率</td><td>已知</td></tr>
+<tr><td>$R(s,a,s')$</td><td>即时奖励</td><td>已知</td></tr>
+<tr><td>$\gamma V_k(s')$</td><td>对未来价值的折现</td><td>上一轮结果</td></tr>
+<tr><td>整体</td><td>$V_{k+1}(s)$ = 所有可能路径的期望回报</td><td>对动作×下一状态加权</td></tr>
+</table>
+
+<h3>流程</h3>
+<div class="flow">
+<span class="fn">V=0 初始化</span><span class="fa">→</span><span class="fn">贝尔曼期望更新</span><span class="fa">→</span><span class="fn">Δ&lt;θ ?</span><span class="fa">→</span><span class="fn">输出 V<sup>π</sup></span>
+</div>
+
+<h3>手算示例：1×3 网格</h3>
+<pre>[ S ]──[ A ]──[ G ]    γ=0.9, 每步 R=-1, 到 G 奖励 +10
+策略: π(S)=→, π(A)=→ (一直向右)
+
+k=0:  V(S)=0,  V(A)=0,  V(G)=0
+k=1:  V(S)=-1+0.9×0=-1,  V(A)=10+0.9×0=10,  V(G)=0   ← A 发现 G
+k=2:  V(S)=-1+0.9×10=8,  V(A)=10,           V(G)=0   ← S 发现 A
+k=3:  收敛! (值不再变化)</pre>
+<blockquote>信息从终点向起点"倒流"——每轮迭代，价值信息向前传播一步。</blockquote>
+
+<!-- 3 -->
+<h2>3. 策略改进（Policy Improvement）</h2>
+<h3>核心：贪心选 Q 最大的动作</h3>
+<div class="formula"><div class="lbl">贪心改进</div>$\pi'(s) = \arg\max_a Q^\pi(s, a) = \arg\max_a \sum_{s'} P(s'|s,a) [R + \gamma V^\pi(s')]$</div>
+
+<h3>策略改进定理</h3>
+<div class="key-box"><div class="kbt">🎯 贪心改进一定不会变差</div>
+<p>如果 $\pi'$ 由 $\pi$ 经贪心改进得到，则 $V^{\pi'}(s) \geq V^\pi(s)$ 对所有 $s$ 成立。</p></div>
+
+<h3>证明（四步）</h3>
+<div class="step"><span class="sn">1</span><strong>贪心定义</strong>：$V^\pi(s) \leq Q^\pi(s, \pi'(s))$，因为 $\pi'$ 选了 Q 最大的动作</div>
+<div class="step"><span class="sn">2</span><strong>展开 Q</strong>：$V^\pi(s) \leq \sum_{s'} P(s'|s,\pi'(s)) [R + \gamma V^\pi(s')]$</div>
+<div class="step"><span class="sn">3</span><strong>递归应用</strong>：对 $s'$ 再次用 $V^\pi(s') \leq Q^\pi(s', \pi'(s'))$，逐层展开</div>
+<div class="step"><span class="sn">4</span><strong>极限</strong>：展开到终止状态，右侧 = $\mathbb{E}_{\pi'}[G_t|S_t=s] = V^{\pi'}(s)$，证毕 $\square$</div>
+
+<!-- 4 -->
+<h2>4. 策略迭代（Policy Iteration）</h2>
+<div class="flow">
+<span class="fn">π₀</span><span class="fa">→评估→</span><span class="fn">V<sup>π₀</sup></span><span class="fa">→改进→</span><span class="fn">π₁</span><span class="fa">→评估→</span><span class="fn">...</span><span class="fa">→</span><span class="fn">π*</span>
+</div>
+
+<div class="formula"><div class="lbl">算法结构</div>
+<p style="margin:0"><strong>repeat</strong>: { 策略评估（迭代到 Δ&lt;θ）→ 策略改进（贪心选动作）} <strong>until</strong> 策略稳定</p>
+</div>
+
+<h3>1×3 网格手算</h3>
+<table>
+<tr><th>轮次</th><th>策略</th><th>V(S)</th><th>V(A)</th><th>说明</th></tr>
+<tr><td>初始</td><td>50%←/50%→</td><td>3.18</td><td>4.55</td><td>随机策略价值低</td></tr>
+<tr><td>改进后</td><td>全→</td><td>8</td><td>10</td><td>贪心后价值飙升</td></tr>
+<tr><td>再改进</td><td>全→ (不变)</td><td>8</td><td>10</td><td>策略稳定，结束</td></tr>
+</table>
+
+<!-- 5 -->
+<h2>5. 价值迭代（Value Iteration）</h2>
+<h3>动机</h3>
+<p>策略迭代的评估步很慢。能不能<strong>边评估边改进</strong>？</p>
+
+<div class="formula"><div class="lbl">价值迭代更新</div>$V_{k+1}(s) = \max_a \sum_{s'} P(s'|s,a) [R + \gamma V_k(s')]$</div>
+
+<h3>和策略评估的唯一区别</h3>
+<table>
+<tr><th></th><th>策略评估</th><th>价值迭代</th></tr>
+<tr><td>更新公式</td><td>$\sum_a \pi(a|s) Q(s,a)$</td><td>$\max_a Q(s,a)$</td></tr>
+<tr><td>含义</td><td>加权平均</td><td>取最大值</td></tr>
+<tr><td>效果</td><td>只评估，不改进</td><td>评估 + 隐式改进</td></tr>
+</table>
+
+<h3>收敛证明：压缩映射</h3>
+<div class="formula"><div class="lbl">T* 是 γ-压缩映射</div>
+$$\begin{aligned} &\|T^*(V_1) - T^*(V_2)\|_\infty \\ &\leq \max_s \max_a \sum_{s'} P(s'|s,a) \gamma |V_1(s') - V_2(s')| \\ &\leq \gamma \|V_1 - V_2\|_\infty \underbrace{\sum_{s'} P(s'|s,a)}_{=1} \\ &= \gamma \|V_1 - V_2\|_\infty \end{aligned}$$</div>
+<p>由 Banach 不动点定理：$V_k \to V^*$（唯一不动点）。</p>
+
+<h3>1×3 网格手算</h3>
+<pre>k=0:  V(S)=0,    V(A)=0,    V(G)=0
+k=1:  V(S)=max(-1,-1)=-1,  V(A)=max(-1,10)=10,  V(G)=0
+k=2:  V(S)=max(-1,-1+9)=8, V(A)=10,             V(G)=0
+k=3:  收敛! 提取策略: π(S)=→, π(A)=→</pre>
+
+<!-- 6 -->
+<h2>6. 广义策略迭代（GPI）</h2>
+<div class="flow">
+<span class="fn">策略 π</span><span class="fa">→评估 E→</span><span class="fn">价值 V/Q</span><span class="fa">→改进 I→</span><span class="fn">策略 π</span>
+</div>
+
+<div class="key-box"><div class="kbt">🔑 GPI 是所有 RL 算法的统一框架</div>
+<p>评估和改进不必"尽善尽美"——只要两者轮流推进，系统整体向最优策略收敛。</p></div>
+
+<table>
+<tr><th>算法</th><th>评估（E）</th><th>改进（I）</th></tr>
+<tr><td>策略迭代</td><td>迭代到收敛</td><td>完全贪心</td></tr>
+<tr><td>价值迭代</td><td>只做一步</td><td>max（隐式贪心）</td></tr>
+<tr><td>MC (Day 4)</td><td>采样取平均</td><td>ε-贪心</td></tr>
+<tr><td>TD (Day 5)</td><td>TD 误差更新</td><td>ε-贪心</td></tr>
+<tr><td>SARSA (Day 6)</td><td>TD 更新 Q</td><td>ε-贪心</td></tr>
+<tr><td>Q-Learning (Day 6)</td><td>TD 更新 Q</td><td>max（Off-Policy）</td></tr>
+</table>
+
+<!-- 7 -->
+<h2>7. FrozenLake 实战结果</h2>
+<pre>SFFF       is_slippery=True (冰面滑)
+FHFH       两种算法结果完全一致:
+FFFH         胜率: 74.30%
+HFFG         策略迭代: 3 轮外循环, 147 次评估迭代
+             价值迭代: 127 次迭代收敛
+
+最优策略:
+  ←  ↑  ↑  ↑
+  ←  ←  ←  ←
+  ↑  →  ↑  ←
+  ←  ↑  →  ←</pre>
+
+<!-- 8 -->
+<h2>8. 三种算法总对比</h2>
+<table>
+<tr><th>维度</th><th>策略评估</th><th>策略迭代</th><th>价值迭代</th></tr>
+<tr><td>做什么</td><td>评估 π</td><td>找 π*</td><td>找 π*</td></tr>
+<tr><td>公式</td><td>$\sum\pi\sum P[R+\gamma V]$</td><td>交替评估+改进</td><td>$\max\sum P[R+\gamma V]$</td></tr>
+<tr><td>评估深度</td><td>到收敛</td><td>到收敛</td><td>一步</td></tr>
+<tr><td>收敛保证</td><td>压缩映射</td><td>有限步</td><td>压缩映射</td></tr>
+</table>
+
+<!-- 9 -->
+<h2>9. 核心总结</h2>
+<div class="summary">
+<div class="sc"><span class="n">1</span><span class="name">策略评估</span><div class="desc">贝尔曼期望方程迭代，算 V<sup>π</sup></div></div>
+<div class="sc"><span class="n">2</span><span class="name">策略改进</span><div class="desc">贪心选 Q 最大的动作，保证不差</div></div>
+<div class="sc"><span class="n">3</span><span class="name">策略迭代</span><div class="desc">评估+改进交替，有限步收敛</div></div>
+<div class="sc"><span class="n">4</span><span class="name">价值迭代</span><div class="desc">max 代替加权，一步评估+隐式改进</div></div>
+<div class="sc"><span class="n">5</span><span class="name">GPI</span><div class="desc">所有 RL 算法的抽象框架</div></div>
+<div class="sc"><span class="n">6</span><span class="name">压缩映射</span><div class="desc">Banach 不动点定理保证收敛</div></div>
+</div>
+
+<h3>关键公式速查</h3>
+<table>
+<tr><th>公式</th><th>名称</th><th>用途</th></tr>
+<tr><td>$V(s) \leftarrow \sum_a \pi \sum_{s'} P[R + \gamma V(s')]$</td><td>期望更新</td><td>策略评估</td></tr>
+<tr><td>$\pi'(s) = \arg\max_a \sum_{s'} P[R + \gamma V(s')]$</td><td>贪心改进</td><td>策略改进</td></tr>
+<tr><td>$V(s) \leftarrow \max_a \sum_{s'} P[R + \gamma V(s')]$</td><td>最优更新</td><td>价值迭代</td></tr>
+</table>
+
+<div class="formula" style="border-left-color:var(--purple);margin-top:24px">
+<div class="lbl"> 下节预告：Day 4 — 蒙特卡洛方法</div>
+<p style="margin:0">扔掉 P 和 R，直接从完整轨迹中采样学习。无模型时代的开端。</p>
+</div>
+
+<footer>
+<p>强化学习系统学习笔记 · Day 3 · <a href="https://github.com/Xinyu-lumos/RL-study">GitHub 仓库</a></p>
+<p>参考：Sutton &amp; Barto, Chapter 4: Dynamic Programming</p>
+</footer>
+</body>
+</html>
