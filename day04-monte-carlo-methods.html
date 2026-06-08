@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 4：蒙特卡洛方法 - 强化学习笔记</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--orange:#f78166;--green:#3fb950;--purple:#bc8cff;--yellow:#d29922;--code-bg:#1c2128}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);line-height:1.8;max-width:880px;margin:0 auto;padding:40px 24px}
+h1{font-size:36px;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--muted);font-size:16px;margin-bottom:32px}
+h2{font-size:24px;margin:36px 0 16px;padding-bottom:8px;border-bottom:2px solid var(--border)}
+h3{font-size:18px;margin:24px 0 10px;color:var(--accent)}
+p{margin:10px 0} ul,ol{margin:8px 0 8px 24px} li{margin:4px 0}
+a{color:var(--accent)}
+.formula{background:var(--code-bg);border:1px solid var(--border);border-left:3px solid var(--accent);padding:14px 18px;margin:14px 0;border-radius:0 8px 8px 0;overflow-x:auto}
+.formula .lbl{font-size:12px;color:var(--orange);margin-bottom:4px;font-weight:600}
+.key-box{background:linear-gradient(135deg,#1a2332,#1c2a3a);border:1px solid var(--accent);border-radius:8px;padding:14px 18px;margin:14px 0}
+.key-box .kbt{color:var(--accent);font-weight:600;font-size:14px;margin-bottom:8px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+th{background:var(--code-bg);color:var(--accent);padding:10px 14px;text-align:left;border-bottom:2px solid var(--border);font-size:13px}
+td{padding:10px 14px;border-bottom:1px solid var(--border)}
+tr:hover td{background:#1a2233}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px;overflow-x:auto;margin:14px 0;font-family:'Fira Code','Consolas',monospace;font-size:13px;line-height:1.6}
+code{font-family:'Fira Code','Consolas',monospace;background:var(--code-bg);padding:2px 6px;border-radius:4px;font-size:.9em}
+blockquote{border-left:3px solid var(--purple);padding:8px 16px;margin:12px 0;color:var(--muted);font-style:italic;background:rgba(188,140,255,.05)}
+.flow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin:14px 0;padding:14px;background:var(--code-bg);border-radius:8px}
+.fn{background:var(--card);border:2px solid var(--accent);border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;white-space:nowrap}
+.fa{color:var(--accent);font-size:20px}
+.tag{display:inline-block;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600}
+.tg-on{background:#1a3a2a;color:var(--green);border:1px solid var(--green)}
+.tg-off{background:#3a2a1a;color:var(--orange);border:1px solid var(--orange)}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:14px 0}
+.sc{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px}
+.sc .n{display:inline-block;width:22px;height:22px;background:var(--accent);color:var(--bg);border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;margin-right:8px}
+.sc .name{font-weight:600;font-size:14px}
+.sc .desc{color:var(--muted);font-size:13px;margin-top:4px}
+footer{text-align:center;margin-top:48px;padding-top:24px;border-top:1px solid var(--border);color:var(--muted);font-size:13px}
+@media(max-width:640px){body{padding:20px 14px}h1{font-size:28px}}
+</style>
+<script>window.MathJax={tex:{inlineMath:[['$','$']],displayMath:[['$$','$$']]},svg:{fontCache:'global'}}</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+<h1>Day 4：蒙特卡洛方法</h1>
+<p class="subtitle">Monte Carlo — 用采样替代模型，无模型时代的开端</p>
+
+<h2>1. 核心思想：用采样替代模型</h2>
+<div class="formula"><div class="lbl">MC 估计</div>$V^\pi(s) \approx \frac{1}{N(s)} \sum_{i=1}^{N(s)} G_t^{(i)}$</div>
+<blockquote>想知道骰子抛出 6 的概率？不用推导物理公式，掷 10000 次然后数。</blockquote>
+
+<h2>2. MC 预测：评估给定策略</h2>
+<h3>First-Visit MC</h3>
+<div class="flow">
+<span class="fn">启动轨迹</span><span class="fa">→</span><span class="fn">按 π 交互</span><span class="fa">→</span><span class="fn">算 G</span><span class="fa">→</span><span class="fn">V = 平均</span><span class="fa">→</span><span class="fn">够了?</span>
+</div>
+<div class="formula"><div class="lbl">增量更新（为 TD 铺垫）</div>$V(S_t) \leftarrow V(S_t) + \alpha \big(G_t - V(S_t)\big)$</div>
+
+<h2>3. MC 控制：找最优策略</h2>
+<div class="key-box"><div class="kbt">🔑 为什么必须学 Q 而不是 V？</div>
+<p>没有模型 $P$，就算知道 $V(s')$ 也算不出"选哪个动作更好"。<br>直接学 $Q(s,a)$，贪心时直接比大小：$\pi'(s) = \arg\max_a Q(s,a)$</p></div>
+
+<h2>4. ε-贪心策略 <span class="tag tg-on">探索与利用</span></h2>
+<div class="formula"><div class="lbl">ε-贪心</div>$\pi(a|s) = \begin{cases} 1 - \varepsilon + \frac{\varepsilon}{|\mathcal{A}|} & a = \arg\max Q \\ \frac{\varepsilon}{|\mathcal{A}|} & \text{其他} \end{cases}$</div>
+<p>90% 最优 + 10% 随机探索。GLIE 条件：$\varepsilon \to 0$ 同时保证无限探索。</p>
+
+<h2>5. On-Policy vs Off-Policy</h2>
+<table>
+<tr><th></th><th>On-Policy <span class="tag tg-on">同策略</span></th><th>Off-Policy <span class="tag tg-off">异策略</span></th></tr>
+<tr><td>采样策略</td><td>就是目标策略</td><td>与目标策略不同</td></tr>
+<tr><td>最终策略</td><td>ε-最优</td><td>纯贪心最优</td></tr>
+<tr><td>方差</td><td>低</td><td>高（重要性采样）</td></tr>
+<tr><td>数据效率</td><td>低（在线）</td><td>高（可用历史数据）</td></tr>
+</table>
+
+<h3>重要性采样</h3>
+<div class="formula"><div class="lbl">重要性采样比率</div>$\rho_{t:T-1} = \prod_{k=t}^{T-1} \frac{\pi(A_k \mid S_k)}{b(A_k \mid S_k)}$</div>
+
+<h2>6. MC vs DP</h2>
+<table>
+<tr><th>维度</th><th>DP</th><th>MC</th></tr>
+<tr><td>需要模型</td><td>是</td><td><strong>否</strong></td></tr>
+<tr><td>自举</td><td>是</td><td><strong>否</strong>（用完整 G）</td></tr>
+<tr><td>偏差</td><td>模型偏差</td><td><strong>无偏</strong></td></tr>
+<tr><td>方差</td><td>低</td><td><strong>高</strong></td></tr>
+<tr><td>等回合结束</td><td>否</td><td><strong>是</strong></td></tr>
+</table>
+
+<h2>7. 核心总结</h2>
+<div class="summary">
+<div class="sc"><span class="n">1</span><span class="name">MC 核心</span><div class="desc">用采样平均代替期望</div></div>
+<div class="sc"><span class="n">2</span><span class="name">First-Visit</span><div class="desc">只取首次访问的回报</div></div>
+<div class="sc"><span class="n">3</span><span class="name">增量更新</span><div class="desc">$V \leftarrow V + \alpha(G - V)$</div></div>
+<div class="sc"><span class="n">4</span><span class="name">ε-贪心</span><div class="desc">90%利用 + 10%探索</div></div>
+<div class="sc"><span class="n">5</span><span class="name">GLIE</span><div class="desc">无限探索 + 极限贪心</div></div>
+<div class="sc"><span class="n">6</span><span class="name">MC 局限</span><div class="desc">必须等回合、高方差</div></div>
+</div>
+
+<footer>
+<p>强化学习系统学习笔记 · Day 4 · <a href="https://github.com/Xinyu-lumos/RL-study">GitHub 仓库</a></p>
+<p>参考：Sutton &amp; Barto, Chapter 5</p>
+</footer>
+</body>
+</html>
