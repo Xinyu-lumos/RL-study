@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 6：SARSA 与 Q-Learning - 强化学习笔记</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--orange:#f78166;--green:#3fb950;--purple:#bc8cff;--yellow:#d29922;--code-bg:#1c2128}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);line-height:1.8;max-width:860px;margin:0 auto;padding:40px 24px}
+h1{font-size:36px;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--muted);font-size:16px;margin-bottom:32px}
+h2{font-size:24px;margin:36px 0 16px;padding-bottom:8px;border-bottom:2px solid var(--border)}
+h3{font-size:18px;margin:24px 0 10px;color:var(--accent)}
+h4{font-size:15px;margin:18px 0 8px;color:var(--purple)}
+p{margin:10px 0}
+ul,ol{margin:8px 0 8px 24px} li{margin:4px 0}
+a{color:var(--accent)}
+.formula{background:var(--code-bg);border:1px solid var(--border);border-left:3px solid var(--accent);padding:14px 18px;margin:14px 0;border-radius:0 8px 8px 0;overflow-x:auto}
+.formula .lbl{font-size:12px;color:var(--orange);margin-bottom:4px;font-weight:600}
+.key-box{background:linear-gradient(135deg,#1a2332,#1c2a3a);border:1px solid var(--accent);border-radius:8px;padding:14px 18px;margin:14px 0}
+.key-box .kbt{color:var(--accent);font-weight:600;font-size:14px;margin-bottom:8px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+th{background:var(--code-bg);color:var(--accent);padding:10px 14px;text-align:left;border-bottom:2px solid var(--border);font-size:13px}
+td{padding:10px 14px;border-bottom:1px solid var(--border)}
+tr:hover td{background:#1a2233}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px;overflow-x:auto;margin:14px 0;font-family:'Fira Code','Consolas',monospace;font-size:13px;line-height:1.6}
+code{font-family:'Fira Code','Consolas',monospace;background:var(--code-bg);padding:2px 6px;border-radius:4px;font-size:.9em}
+blockquote{border-left:3px solid var(--purple);padding:8px 16px;margin:12px 0;color:var(--muted);font-style:italic;background:rgba(188,140,255,.05)}
+.flow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin:14px 0;padding:14px;background:var(--code-bg);border-radius:8px}
+.fn{background:var(--card);border:2px solid var(--accent);border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;white-space:nowrap}
+.fa{color:var(--accent);font-size:20px}
+.tag{display:inline-block;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600}
+.tg-on{background:#1a3a2a;color:var(--green);border:1px solid var(--green)}
+.tg-off{background:#3a2a1a;color:var(--orange);border:1px solid var(--orange)}
+.tg-es{background:#1a2a3a;color:var(--accent);border:1px solid var(--accent)}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:14px 0}
+.sc{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px}
+.sc .n{display:inline-block;width:22px;height:22px;background:var(--accent);color:var(--bg);border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;margin-right:8px}
+.sc .name{font-weight:600;font-size:14px}
+.sc .desc{color:var(--muted);font-size:13px;margin-top:4px}
+footer{text-align:center;margin-top:48px;padding-top:24px;border-top:1px solid var(--border);color:var(--muted);font-size:13px}
+@media(max-width:640px){body{padding:20px 14px}h1{font-size:28px}}
+</style>
+<script>window.MathJax={tex:{inlineMath:[['$','$']],displayMath:[['$$','$$']]},svg:{fontCache:'global'}}</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+
+<h1>Day 6：SARSA 与 Q-Learning</h1>
+<p class="subtitle">TD 控制 — 从评估策略到寻找最优策略</p>
+
+<!-- 1 -->
+<h2>1. 回顾：从 V 到 Q 的必然性</h2>
+<p>Day 5 的 TD(0) 只评估 <strong>V</strong>。但无模型时想改进策略必须知道 <strong>Q</strong>：</p>
+<div class="formula"><div class="lbl">DP（有模型）</div>$\pi'(s) = \arg\max_a \sum_{s'} P(s'|s,a)[R + \gamma V(s')]$ — 需要 $P$</div>
+<div class="formula"><div class="lbl">无模型</div>$\pi'(s) = \arg\max_a Q(s,a)$ — 不需要 $P$，直接比大小</div>
+
+<h2>2. SARSA <span class="tag tg-on">On-Policy</span></h2>
+<div class="formula">
+<div class="lbl">SARSA 更新规则</div>
+$Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha \big[ R_{t+1} + \gamma Q(S_{t+1}, A_{t+1}) - Q(S_t, A_t) \big]$
+</div>
+<p>名字来自五元组：<strong>S</strong><sub>t</sub> → <strong>A</strong><sub>t</sub> → <strong>R</strong><sub>t+1</sub> → <strong>S</strong><sub>t+1</sub> → <strong>A</strong><sub>t+1</sub></p>
+
+<div class="flow">
+<span class="fn">S, A</span><span class="fa">→</span><span class="fn">执行 A, 得 R, S'</span><span class="fa">→</span><span class="fn">ε-贪心选 A'</span><span class="fa">→</span><span class="fn">用 Q(S',A') 更新</span>
+</div>
+
+<div class="key-box"><div class="kbt"> On-Policy = 所见即所学</div>
+<p>采样用的 A'（ε-贪心）和更新目标里的 A' 来自<strong>同一个策略</strong>。SARSA <strong>知道</strong>自己会探索犯错，所以学到的策略会<strong>规避风险</strong>。</p></div>
+
+<h2>3. Q-Learning <span class="tag tg-off">Off-Policy</span></h2>
+<div class="formula">
+<div class="lbl">Q-Learning 更新规则</div>
+$Q(S_t, A_t) \leftarrow Q(S_t, A_t) + \alpha \big[ R_{t+1} + \gamma \max_{a'} Q(S_{t+1}, a') - Q(S_t, A_t) \big]$
+</div>
+<p>和 SARSA 只有一处不同：<strong>$\max_{a'}$ 代替了 $Q(S',A')$</strong></p>
+
+<table>
+<tr><th></th><th>TD 目标</th><th>含义</th></tr>
+<tr><td>SARSA</td><td>$R + \gamma Q(S', A')$</td><td>用策略<strong>实际选的</strong> $A'$</td></tr>
+<tr><td>Q-Learning</td><td>$R + \gamma \max_{a'} Q(S', a')$</td><td>用<strong>最优的</strong> $a'$</td></tr>
+</table>
+
+<div class="key-box"><div class="kbt"> Off-Policy = 两套策略</div>
+<p><strong>行为策略</strong>（ε-贪心）：负责探索采样<br><strong>目标策略</strong>（纯贪心）：我们真正想得到的<br>Q-Learning 直接学目标策略的 $Q^*$，且<strong>不需要重要性采样</strong>。</p></div>
+
+<h2>4. Expected SARSA <span class="tag tg-es">低方差</span></h2>
+<div class="formula"><div class="lbl">Expected SARSA</div>$Q(S,A) \leftarrow Q(S,A) + \alpha \big[ R + \gamma \sum_{a'} \pi(a'|S') Q(S',a') - Q(S,A) \big]$</div>
+<p>不采样 $A'$，直接对策略取<strong>期望</strong> → 消除采样方差。</p>
+<p>当 $\pi$ 是纯贪心时，Expected SARSA <strong>退化为 Q-Learning</strong>。</p>
+
+<h2>5. Cliff Walking 实验</h2>
+<pre>S ── C C C C C C C C C C ── G    (S=起点 G=终点 C=悬崖-100)
+
+         上方绕行（安全路径）
+S · · · · · · · · · · · G
+         悬崖边缘（最短路径）</pre>
+
+<table>
+<tr><th></th><th>贪心路径</th><th>训练奖励</th><th>原因</th></tr>
+<tr><td><strong>SARSA</strong></td><td>16步（绕行）</td><td><strong>-86</strong></td><td>考虑探索会掉崖，保守绕行</td></tr>
+<tr><td><strong>Q-Learning</strong></td><td>12步（贴崖）</td><td><strong>-149</strong></td><td>假设完美执行，ε-贪心频繁掉崖</td></tr>
+<tr><td><strong>Expected SARSA</strong></td><td>14步</td><td><strong>-73</strong></td><td>降低方差，综合最优</td></tr>
+</table>
+
+<blockquote>Q-Learning 学到"理论上最美"的策略，SARSA 学到"实际上最能活"的策略。</blockquote>
+
+<h2>6. 三种算法总对比</h2>
+<table>
+<tr><th>算法</th><th>更新公式</th><th>类型</th><th>方差</th><th>风险</th></tr>
+<tr><td><strong>SARSA</strong></td><td>$Q + \alpha[R+\gamma Q(S',A')-Q]$</td><td>On-Policy</td><td>高</td><td>保守</td></tr>
+<tr><td><strong>Expected SARSA</strong></td><td>$Q + \alpha[R+\gamma\sum\pi Q - Q]$</td><td>均可</td><td>中</td><td>中间</td></tr>
+<tr><td><strong>Q-Learning</strong></td><td>$Q + \alpha[R+\gamma\max Q - Q]$</td><td>Off-Policy</td><td>低</td><td>激进</td></tr>
+</table>
+
+<h2>7. 算法选择指南</h2>
+<div class="summary">
+<div class="sc"><span class="n">1</span><span class="name">环境有风险？</span><div class="desc">探索时失误代价大 → <strong>SARSA</strong></div></div>
+<div class="sc"><span class="n">2</span><span class="name">追求最优？</span><div class="desc">能容忍探索失误 → <strong>Q-Learning</strong></div></div>
+<div class="sc"><span class="n">3</span><span class="name">想二者兼顾？</span><div class="desc">牺牲一点计算换低方差 → <strong>Expected SARSA</strong></div></div>
+<div class="sc"><span class="n">4</span><span class="name">注意过估计</span><div class="desc">Q-Learning 的 max 引入正偏差 → Day 9 修复</div></div>
+</div>
+
+<h2>8. 核心总结</h2>
+<table>
+<tr><th>#</th><th>概念</th><th>一句话</th></tr>
+<tr><td>1</td><td>SARSA</td><td>用实际选的 A' 更新 → 保守安全</td></tr>
+<tr><td>2</td><td>Q-Learning</td><td>用 max 更新 → 激进最优</td></tr>
+<tr><td>3</td><td>唯一区别</td><td>$Q(S',A')$ vs $\max Q(S',a')$</td></tr>
+<tr><td>4</td><td>On/Off-Policy</td><td>采样策略 = 目标策略？</td></tr>
+<tr><td>5</td><td>Q 过估计</td><td>max 引入正偏差，Day 9 Double DQN 修复</td></tr>
+</table>
+
+<div class="formula" style="border-left-color:var(--purple);margin-top:24px">
+<div class="lbl"> 下节预告：Day 7 — 第一阶段复习与实践</div>
+<p style="margin:0">完整串联 MDP → 贝尔曼 → DP → MC → TD → SARSA/Q-Learning，用 Gymnasium 做全算法对比实验，为第二阶段（深度强化学习）做准备。</p>
+</div>
+
+<footer>
+<p>强化学习系统学习笔记 · Day 6 · <a href="https://github.com/Xinyu-lumos/RL-study">GitHub 仓库</a></p>
+<p>参考：Sutton &amp; Barto, Chapter 6.4–6.7</p>
+</footer>
+
+</body>
+</html>
