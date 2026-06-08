@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 1：MDP引言 - 强化学习笔记</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--orange:#f78166;--green:#3fb950;--purple:#bc8cff;--yellow:#d29922;--code-bg:#1c2128}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);line-height:1.8;max-width:880px;margin:0 auto;padding:40px 24px}
+h1{font-size:36px;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--muted);font-size:16px;margin-bottom:32px}
+h2{font-size:24px;margin:36px 0 16px;padding-bottom:8px;border-bottom:2px solid var(--border)}
+h3{font-size:18px;margin:24px 0 10px;color:var(--accent)}
+h4{font-size:15px;margin:18px 0 8px;color:var(--purple)}
+p{margin:10px 0} ul,ol{margin:8px 0 8px 24px} li{margin:4px 0}
+a{color:var(--accent)}
+.formula{background:var(--code-bg);border:1px solid var(--border);border-left:3px solid var(--accent);padding:14px 18px;margin:14px 0;border-radius:0 8px 8px 0;overflow-x:auto}
+.formula .lbl{font-size:12px;color:var(--orange);margin-bottom:4px;font-weight:600}
+.key-box{background:linear-gradient(135deg,#1a2332,#1c2a3a);border:1px solid var(--accent);border-radius:8px;padding:14px 18px;margin:14px 0}
+.key-box .kbt{color:var(--accent);font-weight:600;font-size:14px;margin-bottom:8px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+th{background:var(--code-bg);color:var(--accent);padding:10px 14px;text-align:left;border-bottom:2px solid var(--border);font-size:13px}
+td{padding:10px 14px;border-bottom:1px solid var(--border)}
+tr:hover td{background:#1a2233}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px;overflow-x:auto;margin:14px 0;font-family:'Fira Code','Consolas',monospace;font-size:13px;line-height:1.6}
+code{font-family:'Fira Code','Consolas',monospace;background:var(--code-bg);padding:2px 6px;border-radius:4px;font-size:.9em}
+blockquote{border-left:3px solid var(--purple);padding:8px 16px;margin:12px 0;color:var(--muted);font-style:italic;background:rgba(188,140,255,.05)}
+.flow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin:14px 0;padding:14px;background:var(--code-bg);border-radius:8px}
+.fn{background:var(--card);border:2px solid var(--accent);border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;white-space:nowrap}
+.fa{color:var(--accent);font-size:20px}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:14px 0}
+.sc{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px}
+.sc .n{display:inline-block;width:22px;height:22px;background:var(--accent);color:var(--bg);border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;margin-right:8px}
+.sc .name{font-weight:600;font-size:14px}
+.sc .desc{color:var(--muted);font-size:13px;margin-top:4px}
+footer{text-align:center;margin-top:48px;padding-top:24px;border-top:1px solid var(--border);color:var(--muted);font-size:13px}
+@media(max-width:640px){body{padding:20px 14px}h1{font-size:28px}}
+</style>
+<script>window.MathJax={tex:{inlineMath:[['$','$']],displayMath:[['$$','$$']]},svg:{fontCache:'global'}}</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+<h1>Day 1：引言与马尔可夫决策过程</h1>
+<p class="subtitle">Reinforcement Learning — MDP: 问题建模的数学框架</p>
+
+<h2>1. 什么是强化学习</h2>
+<p><strong>强化学习</strong>研究<strong>智能体（Agent）</strong>如何在与<strong>环境（Environment）</strong>的交互中，通过<strong>试错</strong>学习最优行为策略，以最大化<strong>累积奖励</strong>。</p>
+<table>
+<tr><th>范式</th><th>数据</th><th>反馈</th><th>目标</th></tr>
+<tr><td>监督学习</td><td>带标签数据集</td><td>正确答案</td><td>拟合映射</td></tr>
+<tr><td>无监督学习</td><td>无标签数据</td><td>无显式反馈</td><td>发现结构</td></tr>
+<tr><td><strong>强化学习</strong></td><td>交互序列</td><td>奖励信号</td><td>最大化累积奖励</td></tr>
+</table>
+<p>三大特征：<strong>没有标准答案</strong>、<strong>延迟反馈</strong>、<strong>序列决策</strong>。</p>
+
+<h2>2. Agent-Environment 交互</h2>
+<table>
+<tr><th>要素</th><th>符号</th><th>说明</th></tr>
+<tr><td>智能体</td><td>—</td><td>学习者和决策者</td></tr>
+<tr><td>环境</td><td>—</td><td>Agent 交互的外部世界</td></tr>
+<tr><td>状态</td><td>$S_t \in \mathcal{S}$</td><td>$t$ 时刻环境快照</td></tr>
+<tr><td>动作</td><td>$A_t \in \mathcal{A}$</td><td>$t$ 时刻 Agent 的选择</td></tr>
+<tr><td>奖励</td><td>$R_{t+1} \in \mathbb{R}$</td><td>执行动作后的反馈信号</td></tr>
+</table>
+<div class="flow">
+<span class="fn">Agent</span><span class="fa">→ 动作 A<sub>t</sub> →</span><span class="fn">Environment</span><span class="fa">→ S<sub>t+1</sub>, R<sub>t+1</sub> →</span><span class="fn">Agent</span>
+</div>
+<p>产生的轨迹：$S_0, A_0, R_1, S_1, A_1, R_2, \ldots$</p>
+
+<h2>3. 马尔可夫决策过程（MDP）</h2>
+<h3>马尔可夫性质</h3>
+<div class="formula"><div class="lbl">核心假设</div>$P(S_{t+1} \mid S_t, A_t, \ldots, S_0) = P(S_{t+1} \mid S_t, A_t)$</div>
+<blockquote>未来只取决于现在，与过去无关。</blockquote>
+
+<h3>MDP 五元组</h3>
+<div class="formula"><div class="lbl">MDP 定义</div>$(\mathcal{S}, \mathcal{A}, P, R, \gamma)$</div>
+<table>
+<tr><th>符号</th><th>名称</th><th>含义</th></tr>
+<tr><td>$\mathcal{S}$</td><td>状态空间</td><td>所有可能状态的集合</td></tr>
+<tr><td>$\mathcal{A}$</td><td>动作空间</td><td>所有可能动作的集合</td></tr>
+<tr><td>$P(s'|s,a)$</td><td>转移概率</td><td>执行 $a$ 后到达 $s'$ 的概率</td></tr>
+<tr><td>$R(s,a)$</td><td>奖励函数</td><td>$\mathbb{E}[R_{t+1} \mid S_t=s, A_t=a]$</td></tr>
+<tr><td>$\gamma \in [0,1]$</td><td>折扣因子</td><td>权衡即时与远期奖励</td></tr>
+</table>
+
+<h3>转移概率</h3>
+<div class="formula"><div class="lbl">状态转移概率</div>$P(s' \mid s, a) = P(S_{t+1}=s' \mid S_t=s, A_t=a)$</div>
+<p>性质：$P(s'|s,a) \geq 0$，$\sum_{s'} P(s'|s,a) = 1$（归一化）</p>
+
+<h3>折扣因子 γ</h3>
+<table>
+<tr><th>γ 值</th><th>行为</th><th>场景</th></tr>
+<tr><td>$\gamma = 0$</td><td>只关心即时奖励</td><td>短视</td></tr>
+<tr><td>$\gamma = 0.9$</td><td>平衡即时与远期</td><td>常用</td></tr>
+<tr><td>$\gamma \to 1$</td><td>同样关心远期</td><td>长序列任务</td></tr>
+</table>
+
+<h2>4. 回报与价值函数</h2>
+<h3>回报 G<sub>t</sub></h3>
+<div class="formula"><div class="lbl">折扣累积回报</div>$G_t = R_{t+1} + \gamma R_{t+2} + \gamma^2 R_{t+3} + \cdots = \sum_{k=0}^{\infty} \gamma^k R_{t+k+1}$</div>
+<div class="formula"><div class="lbl">关键递推</div>$G_t = R_{t+1} + \gamma G_{t+1}$</div>
+
+<h3>状态价值函数 V<sup>π</sup></h3>
+<div class="formula"><div class="lbl">V 的定义</div>$V^\pi(s) = \mathbb{E}_\pi[G_t \mid S_t = s] = \mathbb{E}_\pi\left[\sum_{k=0}^{\infty} \gamma^k R_{t+k+1} \;\Big|\; S_t = s\right]$</div>
+
+<h3>动作价值函数 Q<sup>π</sup></h3>
+<div class="formula"><div class="lbl">Q 的定义</div>$Q^\pi(s, a) = \mathbb{E}_\pi[G_t \mid S_t = s, A_t = a]$</div>
+
+<h3>V 与 Q 的关系</h3>
+<div class="formula"><div class="lbl">加权平均</div>$V^\pi(s) = \sum_{a} \pi(a \mid s) Q^\pi(s, a)$</div>
+
+<h2>5. 策略（Policy）</h2>
+<div class="formula"><div class="lbl">策略定义</div>$\pi(a \mid s) = P(A_t = a \mid S_t = s)$</div>
+<div class="formula"><div class="lbl">最优策略</div>$V^*(s) = \max_\pi V^\pi(s), \quad Q^*(s,a) = \max_\pi Q^\pi(s,a)$</div>
+<div class="formula"><div class="lbl">从 Q* 提取最优策略</div>$\pi^*(s) = \arg\max_a Q^*(s,a)$</div>
+
+<h2>6. Grid World 实例</h2>
+<pre>┌─────┬─────┬─────┐
+│  S  │     │  T  │   S = 起点 (0,0)
+├─────┼─────┼─────┤   G = 终点 (2,2), R=+10
+│     │  #  │     │   T = 陷阱 (0,2), R=-10
+├─────┼─────┼─────┤   # = 障碍 (1,1)
+│     │     │  G  │
+└─────┴─────┴─────┘   γ=0.9, 其他每步 R=-1</pre>
+<div class="flow">
+<span class="fn">S (0,0)</span><span class="fa">→→</span><span class="fn">(0,1)</span><span class="fa">→↓</span><span class="fn">(1,2)</span><span class="fa">→↓</span><span class="fn">G (2,2) +10</span>
+</div>
+
+<h2>7. 核心总结</h2>
+<div class="summary">
+<div class="sc"><span class="n">1</span><span class="name">马尔可夫性质</span><div class="desc">$P(S_{t+1}|S_t,A_t)$ 未来只跟现在有关</div></div>
+<div class="sc"><span class="n">2</span><span class="name">MDP</span><div class="desc">$(\mathcal{S},\mathcal{A},P,R,\gamma)$</div></div>
+<div class="sc"><span class="n">3</span><span class="name">回报</span><div class="desc">$G_t = \sum \gamma^k R_{t+k+1}$</div></div>
+<div class="sc"><span class="n">4</span><span class="name">V 和 Q</span><div class="desc">状态价值 vs 动作价值</div></div>
+<div class="sc"><span class="n">5</span><span class="name">策略</span><div class="desc">$\pi(a|s)$ 决策规则</div></div>
+<div class="sc"><span class="n">6</span><span class="name">RL 目标</span><div class="desc">找到 $\pi^*$ 最大化 $V^\pi$</div></div>
+</div>
+
+<footer>
+<p>强化学习系统学习笔记 · Day 1 · <a href="https://github.com/Xinyu-lumos/RL-study">GitHub 仓库</a></p>
+<p>参考：Sutton &amp; Barto, Chapter 3</p>
+</footer>
+</body>
+</html>
