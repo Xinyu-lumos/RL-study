@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 12：PPO - 强化学习笔记</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--orange:#f78166;--green:#3fb950;--purple:#bc8cff;--yellow:#d29922;--code-bg:#1c2128}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);line-height:1.8;max-width:880px;margin:0 auto;padding:40px 24px}
+h1{font-size:36px;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--muted);font-size:16px;margin-bottom:32px}
+h2{font-size:24px;margin:36px 0 16px;padding-bottom:8px;border-bottom:2px solid var(--border)}
+h3{font-size:18px;margin:24px 0 10px;color:var(--accent)}
+h4{font-size:15px;margin:18px 0 8px;color:var(--purple)}
+p{margin:10px 0}
+ul,ol{margin:8px 0 8px 24px} li{margin:4px 0}
+a{color:var(--accent)}
+.formula{background:var(--code-bg);border:1px solid var(--border);border-left:3px solid var(--accent);padding:14px 18px;margin:14px 0;border-radius:0 8px 8px 0;overflow-x:auto}
+.formula .lbl{font-size:12px;color:var(--orange);margin-bottom:4px;font-weight:600}
+.key-box{background:linear-gradient(135deg,#1a2332,#1c2a3a);border:1px solid var(--accent);border-radius:8px;padding:14px 18px;margin:14px 0}
+.key-box .kbt{color:var(--accent);font-weight:600;font-size:14px;margin-bottom:8px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+th{background:var(--code-bg);color:var(--accent);padding:10px 14px;text-align:left;border-bottom:2px solid var(--border);font-size:13px}
+td{padding:10px 14px;border-bottom:1px solid var(--border)}
+tr:hover td{background:#1a2233}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px;overflow-x:auto;margin:14px 0;font-family:'Fira Code','Consolas',monospace;font-size:13px;line-height:1.6}
+code{font-family:'Fira Code','Consolas',monospace;background:var(--code-bg);padding:2px 6px;border-radius:4px;font-size:.9em}
+blockquote{border-left:3px solid var(--purple);padding:8px 16px;margin:12px 0;color:var(--muted);font-style:italic;background:rgba(188,140,255,.05)}
+.flow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin:14px 0;padding:14px;background:var(--code-bg);border-radius:8px}
+.fn{background:var(--card);border:2px solid var(--accent);border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;white-space:nowrap}
+.fa{color:var(--accent);font-size:20px}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600}
+.tg-on{background:rgba(63,185,80,.15);color:var(--green);border:1px solid var(--green)}
+.tg-off{background:rgba(247,129,102,.15);color:var(--orange);border:1px solid var(--orange)}
+.step{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;margin:14px 0}
+.step .sn{display:inline-block;width:28px;height:28px;background:var(--accent);color:var(--bg);border-radius:50%;text-align:center;line-height:28px;font-size:13px;font-weight:700;margin-right:10px}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:14px 0}
+.sc{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px}
+.sc .n{display:inline-block;width:22px;height:22px;background:var(--accent);color:var(--bg);border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;margin-right:8px}
+.sc .name{font-weight:600;font-size:14px}
+.sc .desc{color:var(--muted);font-size:13px;margin-top:4px}
+.warn{background:rgba(247,129,102,.08);border:1px solid var(--orange);border-radius:8px;padding:12px 16px;margin:14px 0;color:var(--orange)}
+footer{text-align:center;margin-top:48px;padding-top:24px;border-top:1px solid var(--border);color:var(--muted);font-size:13px}
+@media(max-width:640px){body{padding:20px 14px}h1{font-size:28px}}
+</style>
+<script>window.MathJax={tex:{inlineMath:[['$','$']],displayMath:[['$$','$$']]},svg:{fontCache:'global'}}</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+
+<h1>Day 12：PPO</h1>
+<p class="subtitle">Proximal Policy Optimization — 限制策略更新幅度，工业界最常用的 RL 算法 <span class="tag tg-on">On-Policy</span></p>
+
+<!-- 1 -->
+<h2>1. 策略更新过大的危险</h2>
+<p>A2C 的策略梯度更新：<strong>没有对步长做任何约束</strong>。</p>
+
+<div class="flow">
+<div class="fn">策略 $\pi_{\text{old}}$</div>
+<span class="fa">→</span>
+<div class="fn">更新过大</div>
+<span class="fa">→</span>
+<div class="fn">性能崩塌</div>
+</div>
+
+<table>
+<tr><th>问题</th><th>原因</th><th>后果</th></tr>
+<tr><td>性能崩塌</td><td>一步更新让好策略变差</td><td>奖励突然下降</td></tr>
+<tr><td>振荡</td><td>在好坏策略间来回跳</td><td>无法收敛</td></tr>
+<tr><td>难调学习率</td><td>最优学习率随训练变化</td><td>需大量调参</td></tr>
+</table>
+
+<div class="key-box"><div class="kbt">核心改进思路</div>
+<p>限制每次策略更新的幅度，确保新策略不会偏离旧策略太远：</p>
+<p>A2C (无约束) → TRPO (信赖域约束) → <strong>PPO (裁剪/惩罚)</strong></p></div>
+
+<!-- 2 -->
+<h2>2. 重要性采样</h2>
+
+<h3>为什么需要？</h3>
+<p>策略梯度方法通常是 <strong>on-policy</strong> 的。要<strong>复用旧策略的数据</strong>，就需要重要性采样。</p>
+
+<div class="formula"><div class="lbl">重要性采样原理</div>$\mathbb{E}_{x \sim p}[f(x)] = \mathbb{E}_{x \sim q}\left[f(x) \cdot \frac{p(x)}{q(x)}\right]$</div>
+
+<h3>在策略梯度中的应用</h3>
+<div class="formula"><div class="lbl">重要性比率</div>$r_t(\theta) = \frac{\pi_\theta(A_t|S_t)}{\pi_{\theta_{\text{old}}}(A_t|S_t)}$</div>
+
+<table>
+<tr><th>$r_t$ 值</th><th>含义</th></tr>
+<tr><td>$= 1$</td><td>新旧策略完全相同</td></tr>
+<tr><td>$> 1$</td><td>新策略更倾向选该动作</td></tr>
+<tr><td>$< 1$</td><td>新策略更不倾向选该动作</td></tr>
+</table>
+
+<div class="formula"><div class="lbl">重要性采样目标</div>$L^{\text{IS}}(\theta) = \mathbb{E}_t\left[r_t(\theta) \cdot \hat{A}_t\right]$</div>
+
+<div class="warn">⚠ 当 $r_t(\theta)$ 很大时（策略变化很大），这个估计的方差极高，且可能给出错误方向。</div>
+
+<!-- 3 -->
+<h2>3. TRPO：信赖域策略优化</h2>
+
+<div class="formula"><div class="lbl">TRPO 约束优化</div>$\max_\theta \; \mathbb{E}_t\left[r_t(\theta) \cdot \hat{A}_t\right] \quad \text{s.t.} \quad \bar{D}_{\text{KL}}(\theta_{\text{old}}, \theta) \leq \delta$</div>
+
+<h3>KL 散度</h3>
+<div class="formula"><div class="lbl">KL 散度定义</div>$D_{\text{KL}}(\pi_{\text{old}} \| \pi_{\text{new}}) = \sum_a \pi_{\text{old}}(a|s) \log \frac{\pi_{\text{old}}(a|s)}{\pi_{\text{new}}(a|s)}$</div>
+
+<h3>TRPO 的求解</h3>
+<p>对约束优化做二阶近似，用<strong>共轭梯度法</strong>求解自然梯度。需要计算 Fisher 信息矩阵，参数量 $n$ 时矩阵大小 $n \times n$。</p>
+
+<table>
+<tr><th>问题</th><th>说明</th></tr>
+<tr><td>计算 Fisher 矩阵</td><td>参数量大时不可接受</td></tr>
+<tr><td>共轭梯度</td><td>需要 Hessian-向量积</td></tr>
+<tr><td>实现复杂</td><td>约束优化 + 线搜索</td></tr>
+<tr><td>与 NN 兼容差</td><td>二阶方法在共享参数网络上难实现</td></tr>
+</table>
+
+<blockquote>TRPO：理论优美（保证单调改进），但工程上太难用。PPO 就是来解决这个问题的。</blockquote>
+
+<!-- 4 -->
+<h2>4. PPO-Clip：裁剪目标函数</h2>
+
+<div class="key-box"><div class="kbt">PPO 核心思想</div>
+<p>保留 TRPO "限制策略变化"的核心思想，但用<strong>简单的一阶方法</strong>替代复杂的二阶优化。</p></div>
+
+<div class="formula"><div class="lbl">PPO-Clip 目标函数 ⭐</div>$L^{\text{CLIP}}(\theta) = \mathbb{E}_t\left[\min\left(r_t(\theta) \cdot \hat{A}_t, \; \text{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon) \cdot \hat{A}_t\right)\right]$</div>
+
+<h3>裁剪直觉——分情况分析</h3>
+
+<div class="step"><span class="sn">1</span><strong>优势为正（$\hat{A}_t > 0$）</strong>：好动作，增加概率，但 $r_t$ 不超过 $1+\epsilon$</div>
+<div class="step"><span class="sn">2</span><strong>优势为负（$\hat{A}_t < 0$）</strong>：坏动作，降低概率，但 $r_t$ 不低于 $1-\epsilon$</div>
+
+<p>裁剪形成"信任区域"：策略比率在 $[1-\epsilon, 1+\epsilon]$ 范围外时<strong>不再提供梯度</strong>。</p>
+
+<h3>手算示例：$\hat{A}_t = 2.0$，$\epsilon = 0.2$</h3>
+<table>
+<tr><th>$r_t$</th><th>$r_t \cdot \hat{A}_t$</th><th>$\text{clip} \cdot \hat{A}_t$</th><th>$L^{\text{CLIP}}$</th><th>说明</th></tr>
+<tr><td>0.9</td><td>1.8</td><td>1.8</td><td><strong>1.8</strong></td><td>范围内</td></tr>
+<tr><td>1.0</td><td>2.0</td><td>2.0</td><td><strong>2.0</strong></td><td>基准</td></tr>
+<tr><td>1.2</td><td>2.4</td><td>2.4</td><td><strong>2.4</strong></td><td>裁剪边界</td></tr>
+<tr><td>1.5</td><td>3.0</td><td>2.4</td><td><strong>2.4</strong></td><td>触发裁剪！</td></tr>
+<tr><td>2.0</td><td>4.0</td><td>2.4</td><td><strong>2.4</strong></td><td>触发裁剪！</td></tr>
+</table>
+
+<h3>PPO-Clip vs TRPO</h3>
+<table>
+<tr><th>维度</th><th>TRPO</th><th>PPO-Clip</th></tr>
+<tr><td>约束方式</td><td>硬约束 KL ≤ δ</td><td>软约束裁剪</td></tr>
+<tr><td>优化方法</td><td>二阶（共轭梯度）</td><td><strong>一阶（SGD/Adam）</strong></td></tr>
+<tr><td>计算量</td><td>大（Fisher 矩阵）</td><td><strong>小（只多一个 min）</strong></td></tr>
+<tr><td>实现难度</td><td>高</td><td><strong>低</strong></td></tr>
+<tr><td>性能</td><td>好</td><td><strong>相当或更好</strong></td></tr>
+</table>
+
+<!-- 5 -->
+<h2>5. PPO-Penalty：自适应 KL 惩罚</h2>
+
+<div class="formula"><div class="lbl">KL 惩罚目标</div>$L^{\text{KLPEN}}(\theta) = \mathbb{E}_t\left[r_t(\theta) \cdot \hat{A}_t - \beta \cdot D_{\text{KL}}[\pi_{\text{old}}, \pi_\theta]\right]$</div>
+
+<h3>自适应 $\beta$</h3>
+<div class="formula"><div class="lbl">自适应 KL 惩罚系数</div>$\begin{cases} \beta \leftarrow 2\beta & \text{if } d > 1.5 \times d_{\text{targ}} \quad \text{(KL 太大，加强惩罚)} \\ \beta \leftarrow \beta / 2 & \text{if } d < d_{\text{targ}} / 1.5 \quad \text{(KL 太小，放松惩罚)} \end{cases}$</div>
+
+<table>
+<tr><th>维度</th><th>PPO-Clip</th><th>PPO-Penalty</th></tr>
+<tr><td>实现难度</td><td><strong>更简单</strong></td><td>需计算 KL 散度</td></tr>
+<tr><td>超参数</td><td>$\epsilon$ (0.1~0.2)</td><td>$d_{\text{targ}}$, 初始 $\beta$</td></tr>
+<tr><td>实际性能</td><td><strong>通常更好</strong></td><td>有时不稳定</td></tr>
+<tr><td>推荐度</td><td>✅ 首选</td><td>较少使用</td></tr>
+</table>
+
+<!-- 6 -->
+<h2>6. PPO 完整算法</h2>
+
+<div class="formula"><div class="lbl">PPO 总目标 ⭐</div>$L(\theta) = \mathbb{E}_t\left[L^{\text{CLIP}}(\theta) - c_1 \cdot L^{\text{VF}}(\theta) + c_2 \cdot H[\pi_\theta](S_t)\right]$</div>
+
+<table>
+<tr><th>组件</th><th>公式</th><th>作用</th></tr>
+<tr><td>$L^{\text{CLIP}}$</td><td>$\min(r_t \hat{A}_t, \text{clip}(r_t)\hat{A}_t)$</td><td>策略改进（受限）</td></tr>
+<tr><td>$L^{\text{VF}}$</td><td>$(V_\theta(S_t) - R_t)^2$</td><td>价值函数回归</td></tr>
+<tr><td>$H$</td><td>$-\sum_a \pi(a|s)\log\pi(a|s)$</td><td>鼓励探索</td></tr>
+</table>
+
+<h3>关键超参数</h3>
+<table>
+<tr><th>参数</th><th>符号</th><th>典型值</th><th>说明</th></tr>
+<tr><td>裁剪参数</td><td>$\epsilon$</td><td>0.1~0.2</td><td>策略变化幅度</td></tr>
+<tr><td>GAE λ</td><td>$\lambda$</td><td>0.95</td><td>偏差-方差权衡</td></tr>
+<tr><td>更新轮数</td><td>$K$</td><td>3~10</td><td>数据复用次数</td></tr>
+<tr><td>步数</td><td>$T$</td><td>2048</td><td>每次收集步数</td></tr>
+<tr><td>学习率</td><td>$\alpha$</td><td>3e-4</td><td>Adam 学习率</td></tr>
+</table>
+
+<div class="flow">
+<div class="fn">收集 T 步数据</div>
+<span class="fa">→</span>
+<div class="fn">计算 GAE 优势</div>
+<span class="fa">→</span>
+<div class="fn">K 轮 PPO 更新</div>
+</div>
+
+<!-- 8 -->
+<h2>7. 算法对比</h2>
+<table>
+<tr><th>维度</th><th>REINFORCE</th><th>A2C</th><th>A2C+GAE</th><th>PPO</th></tr>
+<tr><td>优势估计</td><td>$G_t$</td><td>$\delta_t$</td><td>GAE</td><td>GAE</td></tr>
+<tr><td>更新保护</td><td>无</td><td>无</td><td>无</td><td><strong>裁剪</strong></td></tr>
+<tr><td>数据复用</td><td>1 次</td><td>1 次</td><td>1 次</td><td><strong>K 次</strong></td></tr>
+<tr><td>训练稳定性</td><td>差</td><td>中</td><td>好</td><td><strong>最好</strong></td></tr>
+<tr><td>工业界使用</td><td>❌</td><td>❌</td><td>少</td><td>✅</td></tr>
+</table>
+
+<h3>限制策略更新的方法对比</h3>
+<table>
+<tr><th>方法</th><th>约束方式</th><th>优化</th><th>计算量</th><th>推荐</th></tr>
+<tr><td>自然梯度</td><td>KL 约束</td><td>二阶</td><td>大</td><td>★★</td></tr>
+<tr><td>TRPO</td><td>KL 硬约束</td><td>二阶+CG</td><td>大</td><td>★★★</td></tr>
+<tr><td><strong>PPO-Clip</strong></td><td>裁剪</td><td><strong>一阶</strong></td><td><strong>小</strong></td><td><strong>★★★★★</strong></td></tr>
+<tr><td>PPO-Penalty</td><td>KL 惩罚</td><td>一阶</td><td>中</td><td>★★★</td></tr>
+</table>
+
+<!-- 9 -->
+<h2>8. 总结</h2>
+<div class="summary">
+<div class="sc"><div class="n">1</div><div class="name">策略更新过大</div><div class="desc">一步走太远会导致性能崩塌</div></div>
+<div class="sc"><div class="n">2</div><div class="name">重要性采样</div><div class="desc">$r_t = \pi_{\text{new}}/\pi_{\text{old}}$，复用旧数据</div></div>
+<div class="sc"><div class="n">3</div><div class="name">TRPO</div><div class="desc">KL ≤ δ 约束，理论好但实现难</div></div>
+<div class="sc"><div class="n">4</div><div class="name">PPO-Clip</div><div class="desc">min(r·A, clip(r)·A)，简单高效</div></div>
+<div class="sc"><div class="n">5</div><div class="name">PPO 总目标</div><div class="desc">Clip - c₁·VF + c₂·熵</div></div>
+<div class="sc"><div class="n">6</div><div class="name">数据复用</div><div class="desc">每批数据更新 K 轮，提高效率</div></div>
+<div class="sc"><div class="n">7</div><div class="name">PPO 成功原因</div><div class="desc">简单+稳定+高效+通用</div></div>
+</div>
+
+<h3>下节预告：Day 13 — SAC 与 TD3</h3>
+<p>转向 <strong>Off-Policy</strong> 连续动作空间：最大熵 RL（SAC）、Q 值过估计（TD3）。</p>
+
+<footer>
+<a href="https://github.com/Xinyu-lumos/RL-study">GitHub: Xinyu-lumos/RL-study</a> · 强化学习 21 天学习计划
+</footer>
+</body>
+</html>
