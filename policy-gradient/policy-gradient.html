@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 10：策略梯度 - 强化学习笔记</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--orange:#f78166;--green:#3fb950;--purple:#bc8cff;--yellow:#d29922;--code-bg:#1c2128}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);line-height:1.8;max-width:880px;margin:0 auto;padding:40px 24px}
+h1{font-size:36px;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--muted);font-size:16px;margin-bottom:32px}
+h2{font-size:24px;margin:36px 0 16px;padding-bottom:8px;border-bottom:2px solid var(--border)}
+h3{font-size:18px;margin:24px 0 10px;color:var(--accent)}
+h4{font-size:15px;margin:18px 0 8px;color:var(--purple)}
+p{margin:10px 0}
+ul,ol{margin:8px 0 8px 24px} li{margin:4px 0}
+a{color:var(--accent)}
+.formula{background:var(--code-bg);border:1px solid var(--border);border-left:3px solid var(--accent);padding:14px 18px;margin:14px 0;border-radius:0 8px 8px 0;overflow-x:auto}
+.formula .lbl{font-size:12px;color:var(--orange);margin-bottom:4px;font-weight:600}
+.key-box{background:linear-gradient(135deg,#1a2332,#1c2a3a);border:1px solid var(--accent);border-radius:8px;padding:14px 18px;margin:14px 0}
+.key-box .kbt{color:var(--accent);font-weight:600;font-size:14px;margin-bottom:8px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+th{background:var(--code-bg);color:var(--accent);padding:10px 14px;text-align:left;border-bottom:2px solid var(--border);font-size:13px}
+td{padding:10px 14px;border-bottom:1px solid var(--border)}
+tr:hover td{background:#1a2233}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px;overflow-x:auto;margin:14px 0;font-family:'Fira Code','Consolas',monospace;font-size:13px;line-height:1.6}
+code{font-family:'Fira Code','Consolas',monospace;background:var(--code-bg);padding:2px 6px;border-radius:4px;font-size:.9em}
+blockquote{border-left:3px solid var(--purple);padding:8px 16px;margin:12px 0;color:var(--muted);font-style:italic;background:rgba(188,140,255,.05)}
+.flow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin:14px 0;padding:14px;background:var(--code-bg);border-radius:8px}
+.fn{background:var(--card);border:2px solid var(--accent);border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;white-space:nowrap}
+.fa{color:var(--accent);font-size:20px}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600}
+.tg-on{background:rgba(63,185,80,.15);color:var(--green);border:1px solid var(--green)}
+.tg-off{background:rgba(247,129,102,.15);color:var(--orange);border:1px solid var(--orange)}
+.step{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;margin:14px 0}
+.step .sn{display:inline-block;width:28px;height:28px;background:var(--accent);color:var(--bg);border-radius:50%;text-align:center;line-height:28px;font-size:13px;font-weight:700;margin-right:10px}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:14px 0}
+.sc{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px}
+.sc .n{display:inline-block;width:22px;height:22px;background:var(--accent);color:var(--bg);border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;margin-right:8px}
+.sc .name{font-weight:600;font-size:14px}
+.sc .desc{color:var(--muted);font-size:13px;margin-top:4px}
+footer{text-align:center;margin-top:48px;padding-top:24px;border-top:1px solid var(--border);color:var(--muted);font-size:13px}
+@media(max-width:640px){body{padding:20px 14px}h1{font-size:28px}}
+</style>
+<script>window.MathJax={tex:{inlineMath:[['$','$']],displayMath:[['$$','$$']]},svg:{fontCache:'global'}}</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+
+<h1>Day 10：策略梯度</h1>
+<p class="subtitle">Policy Gradient — 从价值函数到直接优化策略 <span class="tag tg-on">On-Policy</span></p>
+
+<!-- 1 -->
+<h2>1. 从 Value-Based 到 Policy-Based</h2>
+<p>DQN 系列的核心思路：<strong>先学 $Q^*(s,a)$，再提取策略 $\pi(s) = \arg\max_a Q(s,a)$</strong>。这叫 <strong>Value-Based</strong> 方法——间接地通过价值函数找策略。</p>
+
+<h3>Value-Based 的局限</h3>
+<table>
+<tr><th>局限</th><th>说明</th><th>例子</th></tr>
+<tr><td>连续动作空间</td><td>$\arg\max_a Q(s,a)$ 无法遍历</td><td>机器人关节角度 $\in \mathbb{R}^n$</td></tr>
+<tr><td>随机策略</td><td>Q 值只能给确定性策略</td><td>石头剪刀布需要随机出拳</td></tr>
+<tr><td>策略退化</td><td>$\arg\max$ 在 Q 值接近时不稳定</td><td>两个动作 Q 值几乎相等</td></tr>
+</table>
+
+<div class="key-box"><div class="kbt">Policy-Based 核心思想</div>
+<p><strong>直接参数化策略 $\pi_\theta(a|s)$，通过梯度上升最大化期望回报。</strong></p>
+<p>$\underbrace{Q^*(s,a) \to \pi^*(s)}_{\text{Value-Based: 间接}} \quad \longrightarrow \quad \underbrace{\pi_\theta(a|s) \to \text{最大化 } J(\theta)}_{\text{Policy-Based: 直接}}$</p></div>
+
+<!-- 2 -->
+<h2>2. 策略参数化</h2>
+
+<h3>离散动作：Softmax 策略</h3>
+<div class="formula"><div class="lbl">Softmax 策略</div>$\pi_\theta(a|s) = \frac{\exp(h_\theta(s,a))}{\sum_{a'} \exp(h_\theta(s,a'))}$</div>
+<p>偏好值 $h_\theta(s,a)$ 越高的动作，被选中的概率越大，但不会 100%（保持探索）。</p>
+
+<h3>连续动作：高斯策略</h3>
+<div class="formula"><div class="lbl">高斯策略</div>$\pi_\theta(a|s) = \frac{1}{\sigma_\theta(s)\sqrt{2\pi}} \exp\left(-\frac{(a - \mu_\theta(s))^2}{2\sigma_\theta(s)^2}\right)$</div>
+<p>$\mu_\theta(s)$ 是"最佳动作"，$\sigma_\theta(s)$ 控制探索幅度。连续动作空间无需 $\arg\max$！</p>
+
+<!-- 3 -->
+<h2>3. 策略梯度定理</h2>
+
+<h3>目标函数</h3>
+<div class="formula"><div class="lbl">策略优化目标</div>$J(\theta) = \mathbb{E}_{\tau \sim \pi_\theta}[R(\tau)] = \mathbb{E}_{\pi_\theta}\left[\sum_{t=0}^{\infty} \gamma^t R_{t+1}\right]$</div>
+
+<h3>推导：对数导数技巧</h3>
+
+<div class="step"><span class="sn">1</span>展开期望：$J(\theta) = \sum_\tau P(\tau|\theta) R(\tau)$</div>
+<div class="step"><span class="sn">2</span>对 $\theta$ 求导：$\nabla_\theta J = \sum_\tau \nabla_\theta P(\tau|\theta) R(\tau)$</div>
+<div class="step"><span class="sn">3</span>利用 $\nabla P = P \cdot \nabla \log P$：$\nabla_\theta J = \mathbb{E}_{\pi_\theta}[\nabla_\theta \log P(\tau|\theta) \cdot R(\tau)]$</div>
+<div class="step"><span class="sn">4</span>展开 $\log P(\tau|\theta)$：只有 $\pi_\theta$ 依赖 $\theta$，转移概率 $P(s'|s,a)$ 消失！</div>
+<div class="step"><span class="sn">5</span>最终结果：</div>
+
+<div class="formula"><div class="lbl">策略梯度定理</div>$\nabla_\theta J(\theta) = \mathbb{E}_{\pi_\theta}\left[\sum_{t=0}^{T-1} \nabla_\theta \log \pi_\theta(A_t|S_t) \cdot G_t\right]$</div>
+
+<div class="key-box"><div class="kbt">关键洞察</div>
+<p><strong>转移概率 $P(S_{t+1}|S_t,A_t)$ 不依赖 $\theta$，求导后消失！</strong>这意味着策略梯度<strong>不需要知道环境模型</strong>。</p>
+<p>直觉：回报为正 → 增大该轨迹上所有动作的概率；回报为负 → 减小概率。</p></div>
+
+<!-- 4 -->
+<h2>4. REINFORCE 算法</h2>
+
+<div class="flow">
+<div class="fn">采样轨迹</div>
+<span class="fa">→</span>
+<div class="fn">计算 $G_t$</div>
+<span class="fa">→</span>
+<div class="fn">计算梯度</div>
+<span class="fa">→</span>
+<div class="fn">更新 $\theta$</div>
+</div>
+
+<h3>更新规则</h3>
+<div class="formula"><div class="lbl">REINFORCE 梯度更新</div>$\theta \leftarrow \theta + \alpha \sum_t \nabla_\theta \log \pi_\theta(A_t|S_t) \cdot G_t$</div>
+
+<h3>手算示例：2 动作 Softmax</h3>
+<p>初始 $\theta_1 = \theta_2 = 0$，$\pi(\text{左}) = \pi(\text{右}) = 0.5$。Agent 选"右"，奖励 $R=+3$。</p>
+<p>$\nabla_{\theta_2} \log \pi(\text{右}|s) = 1 - \pi(\text{右}) = 0.5$，$\nabla_{\theta_1} \log \pi(\text{右}|s) = -0.5$</p>
+<p>更新（$\alpha=0.1$）：$\theta_2 \leftarrow 0 + 0.1 \times 0.5 \times 3 = 0.15$，$\theta_1 \leftarrow 0 + 0.1 \times (-0.5) \times 3 = -0.15$</p>
+<p><strong>结果</strong>：$\theta_2 > \theta_1$ → "右"被选中的概率增大。</p>
+
+<!-- 5 -->
+<h2>5. REINFORCE with Baseline</h2>
+
+<h3>高方差问题</h3>
+<p>所有回报为正时，坏动作的概率也在增加（只是增加得少）。减去 baseline 使好的动作得正信号，坏动作得负信号：</p>
+
+<div class="formula"><div class="lbl">带 Baseline 的策略梯度</div>$\nabla_\theta J(\theta) = \mathbb{E}_{\pi_\theta}\left[\sum_t \nabla_\theta \log \pi_\theta(A_t|S_t) \cdot (G_t - V(S_t))\right]$</div>
+
+<h3>为什么 Baseline 不引入偏差？</h3>
+<p>$\mathbb{E}_{\pi_\theta}[\nabla_\theta \log \pi_\theta(a|s)] = \sum_a \pi_\theta(a|s) \nabla_\theta \log \pi_\theta(a|s) = \nabla_\theta \sum_a \pi_\theta(a|s) = \nabla_\theta 1 = 0$</p>
+<p>因此 $\mathbb{E}[\nabla \log \pi \cdot b(s)] = b(s) \cdot 0 = 0$，<strong>无偏但降低方差</strong>。</p>
+
+<h3>优势函数视角</h3>
+<div class="formula"><div class="lbl">优势 = 实际 - 预期</div>$A(s,a) = G_t - V(S_t)$</div>
+<p>衡量"动作 $a$ 比平均好多少"。正优势 → 增大概率；负优势 → 减小概率。</p>
+
+<!-- 6 -->
+<h2>6. 方差问题与降方差技巧</h2>
+<table>
+<tr><th>技巧</th><th>方法</th><th>原理</th></tr>
+<tr><td>Baseline</td><td>减去 $V(S_t)$</td><td>让权重有正有负</td></tr>
+<tr><td>优势估计</td><td>$A_t = G_t - V(S_t)$</td><td>只强化比预期好的动作</td></tr>
+<tr><td>多条轨迹</td><td>增大 batch size</td><td>平均降低方差</td></tr>
+<tr><td>奖励归一化</td><td>标准化 $G_t$</td><td>稳定梯度量级</td></tr>
+</table>
+
+<div class="key-box"><div class="kbt">方差-偏差权衡</div>
+<p>MC 回报 $G_t$（高方差、无偏）← $n$-step → TD 目标 $R + \gamma V(S')$（低方差、有偏差）</p>
+<p>REINFORCE 用 $G_t$（MC），Day 11 的 Actor-Critic 用 TD 误差——这是 Day 5 TD vs MC 在策略梯度中的体现。</p></div>
+
+<!-- 7 -->
+<h2>7. 算法对比</h2>
+<table>
+<tr><th>维度</th><th>Q-Learning/DQN</th><th>REINFORCE</th><th>REINFORCE+Baseline</th></tr>
+<tr><td>学习对象</td><td>$Q(s,a)$</td><td>$\pi_\theta(a|s)$</td><td>$\pi_\theta$ + $V(s)$</td></tr>
+<tr><td>策略类型</td><td>$\varepsilon$-贪心</td><td>随机策略</td><td>随机策略</td></tr>
+<tr><td>更新方式</td><td>TD 误差</td><td>MC 回报</td><td>MC - baseline</td></tr>
+<tr><td>On/Off-Policy</td><td><span class="tag tg-off">Off</span></td><td><span class="tag tg-on">On</span></td><td><span class="tag tg-on">On</span></td></tr>
+<tr><td>连续动作</td><td>难</td><td><strong>天然支持</strong></td><td><strong>天然支持</strong></td></tr>
+<tr><td>偏差</td><td>有（自举）</td><td>无偏</td><td>无偏</td></tr>
+<tr><td>方差</td><td>低</td><td>很高</td><td>较高</td></tr>
+</table>
+
+<!-- 8 -->
+<h2>8. 总结</h2>
+<div class="summary">
+<div class="sc"><div class="n">1</div><div class="name">策略参数化</div><div class="desc">直接用 $\pi_\theta(a|s)$ 表示策略，Softmax/高斯</div></div>
+<div class="sc"><div class="n">2</div><div class="name">对数导数技巧</div><div class="desc">$\nabla P = P \cdot \nabla \log P$，乘法变加法</div></div>
+<div class="sc"><div class="n">3</div><div class="name">策略梯度定理</div><div class="desc">$\nabla J = \mathbb{E}[\nabla \log \pi \cdot G_t]$，不需要模型</div></div>
+<div class="sc"><div class="n">4</div><div class="name">REINFORCE</div><div class="desc">MC 采样 + 梯度上升，简单但高方差</div></div>
+<div class="sc"><div class="n">5</div><div class="name">Baseline</div><div class="desc">减去 $V(s)$ 无偏降方差</div></div>
+<div class="sc"><div class="n">6</div><div class="name">优势函数</div><div class="desc">$A(s,a) = G_t - V(s)$，动作比平均好多少</div></div>
+</div>
+
+<h3>下节预告：Day 11 — Actor-Critic</h3>
+<p>将 MC 回报替换为 TD 估计：Actor（策略网络）+ Critic（价值网络），A2C/A3C 加速，GAE 精确优势估计。</p>
+
+<footer>
+<a href="https://github.com/Xinyu-lumos/RL-study">GitHub: Xinyu-lumos/RL-study</a> · 强化学习 21 天学习计划
+</footer>
+</body>
+</html>
