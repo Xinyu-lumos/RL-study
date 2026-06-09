@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 9：DQN改进 - 强化学习笔记</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--orange:#f78166;--green:#3fb950;--purple:#bc8cff;--yellow:#d29922;--code-bg:#1c2128}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);line-height:1.8;max-width:880px;margin:0 auto;padding:40px 24px}
+h1{font-size:36px;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--muted);font-size:16px;margin-bottom:32px}
+h2{font-size:24px;margin:36px 0 16px;padding-bottom:8px;border-bottom:2px solid var(--border)}
+h3{font-size:18px;margin:24px 0 10px;color:var(--accent)}
+p{margin:10px 0} ul,ol{margin:8px 0 8px 24px} li{margin:4px 0}
+a{color:var(--accent)}
+.formula{background:var(--code-bg);border:1px solid var(--border);border-left:3px solid var(--accent);padding:14px 18px;margin:14px 0;border-radius:0 8px 8px 0;overflow-x:auto}
+.formula .lbl{font-size:12px;color:var(--orange);margin-bottom:4px;font-weight:600}
+.key-box{background:linear-gradient(135deg,#1a2332,#1c2a3a);border:1px solid var(--accent);border-radius:8px;padding:14px 18px;margin:14px 0}
+.key-box .kbt{color:var(--accent);font-weight:600;font-size:14px;margin-bottom:8px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+th{background:var(--code-bg);color:var(--accent);padding:10px 14px;text-align:left;border-bottom:2px solid var(--border);font-size:13px}
+td{padding:10px 14px;border-bottom:1px solid var(--border)}
+tr:hover td{background:#1a2233}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px;overflow-x:auto;margin:14px 0;font-family:'Fira Code','Consolas',monospace;font-size:13px;line-height:1.6}
+code{font-family:'Fira Code','Consolas',monospace;background:var(--code-bg);padding:2px 6px;border-radius:4px;font-size:.9em}
+blockquote{border-left:3px solid var(--purple);padding:8px 16px;margin:12px 0;color:var(--muted);font-style:italic;background:rgba(188,140,255,.05)}
+.flow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin:14px 0;padding:14px;background:var(--code-bg);border-radius:8px}
+.fn{background:var(--card);border:2px solid var(--accent);border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;white-space:nowrap}
+.fa{color:var(--accent);font-size:20px}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:14px 0}
+.sc{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px}
+.sc .n{display:inline-block;width:22px;height:22px;background:var(--accent);color:var(--bg);border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;margin-right:8px}
+.sc .name{font-weight:600;font-size:14px}
+.sc .desc{color:var(--muted);font-size:13px;margin-top:4px}
+footer{text-align:center;margin-top:48px;padding-top:24px;border-top:1px solid var(--border);color:var(--muted);font-size:13px}
+@media(max-width:640px){body{padding:20px 14px}h1{font-size:28px}}
+</style>
+<script>window.MathJax={tex:{inlineMath:[['$','$']],displayMath:[['$$','$$']]},svg:{fontCache:'global'}}</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+<h1>Day 9：DQN 改进</h1>
+<p class="subtitle">Double DQN · Dueling DQN · Prioritized Experience Replay</p>
+
+<h2>1. DQN 的三个遗留问题</h2>
+<table>
+<tr><th>问题</th><th>原因</th><th>后果</th><th>解决方案</th></tr>
+<tr><td>Q 值过估计</td><td>max 操作引入正偏差</td><td>策略次优</td><td><strong>Double DQN</strong></td></tr>
+<tr><td>V 和 A 混合</td><td>网络只输出 Q</td><td>状态价值学不快</td><td><strong>Dueling DQN</strong></td></tr>
+<tr><td>均匀采样</td><td>所有经验等概率</td><td>样本效率低</td><td><strong>PER</strong></td></tr>
+</table>
+
+<h2>2. Double DQN：消除过估计</h2>
+<h3>问题：max 的正偏差</h3>
+<div class="formula"><div class="lbl">DQN 目标（过估计风险）</div>$y = r + \gamma \max_{a'} Q(s', a'; \theta^-)$</div>
+<p>max 操作从噪声估计中选最大值 → 系统性偏高。</p>
+
+<h3>解决：选动作和评估分离</h3>
+<div class="formula"><div class="lbl">Double DQN 目标</div>$y = r + \gamma Q\Big(s', \underbrace{\arg\max_{a'} Q(s', a'; \theta)}_{\text{主网络选动作}}; \underbrace{\theta^-}_{\text{目标网络评估}}\Big)$</div>
+<table>
+<tr><th></th><th>选动作</th><th>评估动作</th></tr>
+<tr><td>DQN</td><td>目标网络</td><td>目标网络（同一个）</td></tr>
+<tr><td><strong>Double DQN</strong></td><td><strong>主网络</strong></td><td><strong>目标网络</strong>（分离）</td></tr>
+</table>
+
+<h3>手算示例</h3>
+<pre>3 个动作, 目标网络 Q(s',·;θ⁻) = [3, 5, 4], 主网络 Q(s',·;θ) = [3.2, 4.8, 4.5]
+
+DQN:        max Q(s',a';θ⁻) = 5        → y = r + γ·5
+Double DQN: argmax Q(s',a';θ) = a₂(4.8) → y = r + γ·Q(s',a₂;θ⁻) = r + γ·5
+
+看起来一样? 不一定! 如果主网络 argmax 选了不同动作:
+  Q(s',·;θ) = [3.2, 4.5, 4.8] → argmax = a₃ → Q(s',a₃;θ⁻) = 4 ≠ 5
+  Double DQN 给出更保守的估计!</pre>
+
+<h2>3. Dueling DQN：分离 V 和 A</h2>
+<div class="formula"><div class="lbl">Q 值分解</div>$Q(s, a) = \underbrace{V(s)}_{\text{状态价值}} + \underbrace{A(s, a)}_{\text{优势函数}}$</div>
+<div class="formula"><div class="lbl">Dueling 组合公式</div>$\hat{Q}(s,a) = V(s;\beta) + \Big(A(s,a;\alpha) - \frac{1}{|\mathcal{A}|}\sum_{a'} A(s,a';\alpha)\Big)$</div>
+<div class="flow">
+<span class="fn">输入 s</span><span class="fa">→</span><span class="fn">共享层</span><span class="fa">→</span><span class="fn">V 流 + A 流</span><span class class="fa">→</span><span class="fn">Q = V+A-mean(A)</span>
+</div>
+<div class="key-box"><div class="kbt">为什么减去 mean(A)?</div>
+<p>直接 Q=V+A 有可辨识性问题（V 和 A 可同时加减常数）。强制优势均值为 0，使 V 等于最优 Q 值。</p></div>
+
+<h2>4. PER：优先经验回放</h2>
+<div class="formula"><div class="lbl">优先级定义</div>$p_i = |\delta_i| + \epsilon \quad \text{(TD 误差越大, 优先级越高)}$</div>
+<div class="formula"><div class="lbl">采样概率</div>$P(i) = \frac{p_i^\alpha}{\sum_k p_k^\alpha} \quad (\alpha=0: \text{均匀}, \alpha=1: \text{全优先级})$</div>
+<div class="formula"><div class="lbl">重要性采样权重</div>$w_i = \left(\frac{1}{N} \cdot \frac{1}{P(i)}\right)^\beta \quad (\beta: 0\to\text{不修正}, 1\to\text{完全修正})$</div>
+
+<h3>手算示例</h3>
+<pre>3 条经验, δ=[0.1, 0.5, 2.0], ε=0.01, α=0.6, β=0.4
+
+优先级: p = [0.11, 0.51, 2.01]
+采样概率: P ≈ [0.097, 0.269, 0.634]  ← 经验3被采概率最高
+IS权重 (β=0.4): w₃ = (1/3 · 1/0.634)^0.4 ≈ 0.777  ← 高优先级权重 < 1</pre>
+
+<h2>5. 三种改进对比</h2>
+<table>
+<tr><th>维度</th><th>DQN</th><th>+Double</th><th>+Dueling</th><th>+Both</th></tr>
+<tr><td>Q 过估计</td><td>严重</td><td>消除</td><td>仍有</td><td>消除</td></tr>
+<tr><td>V/A 分离</td><td>无</td><td>无</td><td>有</td><td>有</td></tr>
+<tr><td>实现复杂度</td><td>低</td><td>低</td><td>中</td><td>中</td></tr>
+<tr><td>CartPole 最终奖励</td><td>~320</td><td>~365</td><td>~388</td><td>~413</td></tr>
+</table>
+
+<h2>6. 核心总结</h2>
+<div class="summary">
+<div class="sc"><span class="n">1</span><span class="name">Double DQN</span><div class="desc">主网络选动作, 目标网络评估</div></div>
+<div class="sc"><span class="n">2</span><span class="name">Q 值分解</span><div class="desc">Q = V + A, 分离状态价值和优势</div></div>
+<div class="sc"><span class="n">3</span><span class="name">Dueling 架构</span><div class="desc">双流 + 减去优势均值</div></div>
+<div class="sc"><span class="n">4</span><span class="name">PER</span><div class="desc">按 TD 误差优先采样 + IS 权重修正</div></div>
+<div class="sc"><span class="n">5</span><span class="name">Rainbow</span><div class="desc">6 种改进集大成, Atari SOTA</div></div>
+</div>
+
+<div class="formula" style="border-left-color:var(--purple);margin-top:24px">
+<div class="lbl"> 下节预告：Day 10 — 策略梯度 (REINFORCE)</div>
+<p style="margin:0">全新范式：直接参数化策略 $\pi_\theta(a|s)$，梯度上升优化期望回报。</p>
+</div>
+
+<footer>
+<p>强化学习系统学习笔记 · Day 9 · <a href="https://github.com/Xinyu-lumos/RL-study">GitHub 仓库</a></p>
+<p>参考：van Hasselt 2016, Wang 2016, Schaul 2016</p>
+</footer>
+</body>
+</html>
