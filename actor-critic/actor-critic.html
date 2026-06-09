@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 11：Actor-Critic 方法 - 强化学习笔记</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--orange:#f78166;--green:#3fb950;--purple:#bc8cff;--yellow:#d29922;--code-bg:#1c2128}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);line-height:1.8;max-width:880px;margin:0 auto;padding:40px 24px}
+h1{font-size:36px;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--muted);font-size:16px;margin-bottom:32px}
+h2{font-size:24px;margin:36px 0 16px;padding-bottom:8px;border-bottom:2px solid var(--border)}
+h3{font-size:18px;margin:24px 0 10px;color:var(--accent)}
+h4{font-size:15px;margin:18px 0 8px;color:var(--purple)}
+p{margin:10px 0}
+ul,ol{margin:8px 0 8px 24px} li{margin:4px 0}
+a{color:var(--accent)}
+.formula{background:var(--code-bg);border:1px solid var(--border);border-left:3px solid var(--accent);padding:14px 18px;margin:14px 0;border-radius:0 8px 8px 0;overflow-x:auto}
+.formula .lbl{font-size:12px;color:var(--orange);margin-bottom:4px;font-weight:600}
+.key-box{background:linear-gradient(135deg,#1a2332,#1c2a3a);border:1px solid var(--accent);border-radius:8px;padding:14px 18px;margin:14px 0}
+.key-box .kbt{color:var(--accent);font-weight:600;font-size:14px;margin-bottom:8px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+th{background:var(--code-bg);color:var(--accent);padding:10px 14px;text-align:left;border-bottom:2px solid var(--border);font-size:13px}
+td{padding:10px 14px;border-bottom:1px solid var(--border)}
+tr:hover td{background:#1a2233}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px;overflow-x:auto;margin:14px 0;font-family:'Fira Code','Consolas',monospace;font-size:13px;line-height:1.6}
+code{font-family:'Fira Code','Consolas',monospace;background:var(--code-bg);padding:2px 6px;border-radius:4px;font-size:.9em}
+blockquote{border-left:3px solid var(--purple);padding:8px 16px;margin:12px 0;color:var(--muted);font-style:italic;background:rgba(188,140,255,.05)}
+.flow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin:14px 0;padding:14px;background:var(--code-bg);border-radius:8px}
+.fn{background:var(--card);border:2px solid var(--accent);border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;white-space:nowrap}
+.fa{color:var(--accent);font-size:20px}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600}
+.tg-on{background:rgba(63,185,80,.15);color:var(--green);border:1px solid var(--green)}
+.tg-off{background:rgba(247,129,102,.15);color:var(--orange);border:1px solid var(--orange)}
+.step{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;margin:14px 0}
+.step .sn{display:inline-block;width:28px;height:28px;background:var(--accent);color:var(--bg);border-radius:50%;text-align:center;line-height:28px;font-size:13px;font-weight:700;margin-right:10px}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:14px 0}
+.sc{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px}
+.sc .n{display:inline-block;width:22px;height:22px;background:var(--accent);color:var(--bg);border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;margin-right:8px}
+.sc .name{font-weight:600;font-size:14px}
+.sc .desc{color:var(--muted);font-size:13px;margin-top:4px}
+footer{text-align:center;margin-top:48px;padding-top:24px;border-top:1px solid var(--border);color:var(--muted);font-size:13px}
+@media(max-width:640px){body{padding:20px 14px}h1{font-size:28px}}
+</style>
+<script>window.MathJax={tex:{inlineMath:[['$','$']],displayMath:[['$$','$$']]},svg:{fontCache:'global'}}</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+
+<h1>Day 11：Actor-Critic 方法</h1>
+<p class="subtitle">A2C, A3C, GAE — 从 MC 到 TD，策略梯度的方差-偏差权衡 <span class="tag tg-on">On-Policy</span></p>
+
+<!-- 1 -->
+<h2>1. 从 REINFORCE 到 Actor-Critic</h2>
+<p>REINFORCE 用 MC 回报 $G_t$ 作权重：<strong>高方差、必须等回合结束</strong>。</p>
+<p>回忆 Day 5 的洞察：<strong>TD 用一步估计替代完整回报，降低方差但引入少量偏差</strong>。</p>
+
+<div class="formula"><div class="lbl">核心改进</div>$\underbrace{G_t = R_{t+1} + \gamma R_{t+2} + \cdots}_{\text{REINFORCE: MC (高方差)}} \longrightarrow \underbrace{R_{t+1} + \gamma V(S_{t+1})}_{\text{Actor-Critic: TD (低方差)}}$</div>
+
+<!-- 2 -->
+<h2>2. Actor-Critic 架构</h2>
+<div class="flow">
+<div class="fn">状态 $S_t$</div>
+<span class="fa">→</span>
+<div class="fn">Actor $\pi_\theta$<br/>→ 动作</div>
+<span class="fa">+</span>
+<div class="fn">Critic $V_w$<br/>→ 价值</div>
+</div>
+
+<table>
+<tr><th>组件</th><th>网络</th><th>输出</th><th>作用</th></tr>
+<tr><td><strong>Actor</strong></td><td>$\pi_\theta(a|s)$</td><td>动作概率</td><td>选动作（策略）</td></tr>
+<tr><td><strong>Critic</strong></td><td>$V_w(s)$</td><td>标量价值</td><td>评估状态好坏</td></tr>
+</table>
+
+<!-- 3 -->
+<h2>3. 优势函数估计</h2>
+
+<h3>TD 误差作为优势</h3>
+<div class="formula"><div class="lbl">TD 误差 = 优势的无偏估计（当 Critic 最优时）</div>$\delta_t = R_{t+1} + \gamma V_w(S_{t+1}) - V_w(S_t)$</div>
+
+<p>当 $V_w = V^\pi$ 时，$\mathbb{E}[\delta_t | S_t=s, A_t=a] = Q^\pi(s,a) - V^\pi(s) = A^\pi(s,a)$</p>
+
+<h3>多种优势估计对比</h3>
+<table>
+<tr><th>方法</th><th>公式</th><th>方差</th><th>偏差</th></tr>
+<tr><td>MC 回报</td><td>$G_t - V(S_t)$</td><td>高</td><td>无偏</td></tr>
+<tr><td>TD(0)</td><td>$\delta_t$</td><td>低</td><td>有偏</td></tr>
+<tr><td>n-step TD</td><td>$\sum_{k=0}^{n-1}\gamma^k R_{t+k+1} + \gamma^n V - V$</td><td>中</td><td>中</td></tr>
+<tr><td><strong>GAE</strong></td><td>$\sum (\gamma\lambda)^l \delta_{t+l}$</td><td><strong>可调</strong></td><td><strong>可调</strong></td></tr>
+</table>
+
+<!-- 4 -->
+<h2>4. A2C：Advantage Actor-Critic</h2>
+
+<h3>更新公式</h3>
+<div class="formula"><div class="lbl">Critic 更新</div>$w \leftarrow w + \alpha_w \cdot \delta_t \cdot \nabla_w V_w(S_t)$</div>
+<div class="formula"><div class="lbl">Actor 更新</div>$\theta \leftarrow \theta + \alpha_\theta \cdot \delta_t \cdot \nabla_\theta \log \pi_\theta(A_t|S_t)$</div>
+
+<h3>与 REINFORCE 的关键区别</h3>
+<table>
+<tr><th>维度</th><th>REINFORCE</th><th>A2C</th></tr>
+<tr><td>优势估计</td><td>$G_t$（MC）</td><td>$\delta_t$（TD）</td></tr>
+<tr><td>更新频率</td><td>回合结束</td><td><strong>每步</strong></td></tr>
+<tr><td>方差</td><td>高</td><td><strong>低</strong></td></tr>
+<tr><td>偏差</td><td>无偏</td><td>有偏（自举）</td></tr>
+</table>
+
+<!-- 5 -->
+<h2>5. A3C：Asynchronous A2C</h2>
+
+<div class="flow">
+<div class="fn">全局网络</div>
+<span class="fa">↔</span>
+<div class="fn">Worker 1</div>
+<span class="fa">↔</span>
+<div class="fn">Worker N</div>
+</div>
+
+<p>多线程并行探索，异步更新共享参数。实践中 <strong>A2C（同步版）更常用</strong>——效果相当，实现更简单。</p>
+
+<!-- 6 -->
+<h2>6. GAE：广义优势估计</h2>
+
+<div class="key-box"><div class="kbt">GAE 核心思想</div>
+<p>不选固定的 n-step，对所有 n-step 优势做<strong>指数加权平均</strong>：</p>
+<p>$\hat{A}_t^{\text{GAE}} = \sum_{l=0}^{\infty} (\gamma\lambda)^l \delta_{t+l}^V$</p></div>
+
+<h3>递推计算（高效）</h3>
+<div class="formula"><div class="lbl">GAE 递推</div>$\hat{A}_t = \delta_t + \gamma\lambda \cdot \hat{A}_{t+1}$</div>
+
+<h3>$\lambda$ 的作用</h3>
+<table>
+<tr><th>$\lambda$</th><th>等价于</th><th>方差</th><th>偏差</th></tr>
+<tr><td>0</td><td>TD(0)</td><td>低</td><td>高</td></tr>
+<tr><td>0.95</td><td><strong>常用设置</strong></td><td>较低</td><td>较低</td></tr>
+<tr><td>1</td><td>MC 回报</td><td>高</td><td>无偏</td></tr>
+</table>
+
+<h3>手算示例</h3>
+<p>3 步回合，$\gamma=0.99$，$\lambda=0.95$，$\delta=[0.485, 6.91, 1.0]$</p>
+<p>$\hat{A}_2 = 1.0$, $\hat{A}_1 = 6.91 + 0.99 \times 0.95 \times 1.0 = 7.85$, $\hat{A}_0 = 0.485 + 0.99 \times 0.95 \times 7.85 = 7.87$</p>
+
+<!-- 8 -->
+<h2>7. 算法对比</h2>
+<table>
+<tr><th>维度</th><th>REINFORCE</th><th>REINFORCE+BL</th><th>A2C</th><th>A2C+GAE</th></tr>
+<tr><td>优势估计</td><td>$G_t$</td><td>$G_t-V$</td><td>$\delta_t$</td><td>GAE</td></tr>
+<tr><td>更新频率</td><td>回合结束</td><td>回合结束</td><td>每步</td><td>每步/批</td></tr>
+<tr><td>方差</td><td>很高</td><td>高</td><td>低</td><td><strong>可调</strong></td></tr>
+<tr><td>偏差</td><td>无偏</td><td>无偏</td><td>有偏</td><td><strong>可调</strong></td></tr>
+<tr><td>收敛速度</td><td>慢</td><td>中</td><td>快</td><td><strong>最快</strong></td></tr>
+</table>
+
+<!-- 9 -->
+<h2>8. 总结</h2>
+<div class="summary">
+<div class="sc"><div class="n">1</div><div class="name">Actor-Critic</div><div class="desc">Actor 选动作 + Critic 评估，每步更新</div></div>
+<div class="sc"><div class="n">2</div><div class="name">TD 优势</div><div class="desc">$\delta_t = R + \gamma V(S') - V(S)$，低方差</div></div>
+<div class="sc"><div class="n">3</div><div class="name">A2C</div><div class="desc">同步批量更新，简单高效</div></div>
+<div class="sc"><div class="n">4</div><div class="name">A3C</div><div class="desc">多线程异步，实践中 A2C 更常用</div></div>
+<div class="sc"><div class="n">5</div><div class="name">GAE</div><div class="desc">$\hat{A} = \delta + \gamma\lambda\hat{A}_{t+1}$，偏差-方差可调</div></div>
+<div class="sc"><div class="n">6</div><div class="name">lambda</div><div class="desc">0=TD(0), 1=MC, 0.95=常用折中</div></div>
+</div>
+
+<h3>下节预告：Day 12 — PPO</h3>
+<p>限制策略更新幅度：TRPO（信赖域）、PPO-Clip（裁剪）、PPO+GAE（工业界最常用）</p>
+
+<footer>
+<a href="https://github.com/Xinyu-lumos/RL-study">GitHub: Xinyu-lumos/RL-study</a> · 强化学习 21 天学习计划
+</footer>
+</body>
+</html>
